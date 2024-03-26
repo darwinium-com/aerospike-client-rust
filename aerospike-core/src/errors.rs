@@ -22,9 +22,10 @@ pub struct Error(
 impl error_chain::ChainedError for Error {
     type ErrorKind = ErrorKind;
 
-    fn new(_kind: ErrorKind, _state: error_chain::State) -> Error {
-        panic!("received error chain state, which can include backtrace");
-        // Error(kind, State { next_error: state.next_error, backtrace: NoInternalBacktrace {} })
+    fn new(kind: ErrorKind, state: error_chain::State) -> Error {
+        //panic!("received error chain state, which can include backtrace");
+        Error( ErrorKind::Msg("Unexpected backtrace state".to_string()), State { next_error: state.next_error, backtrace: NoInternalBacktrace {}})
+            .chain_err(|| kind)
     }
 
     fn from_kind(kind: Self::ErrorKind) -> Self {
@@ -467,5 +468,25 @@ mod tests {
         assert!(r.is_err());
         let r2 = r.chain_err(|| ErrorKind::InvalidArgument(format!("Invalid hosts list: '{}'", "boohoo")));
         assert!(r2.is_err());
+
+        let e1 = Error::from(ErrorKind::InvalidArgument("this is not good".to_string()));
+        let e2 = e1
+            .chain_err(|| ErrorKind::Msg("chained msg".to_string()))
+            .chain_err(|| ErrorKind::BadResponse("resp".to_string()));
+        println!("as debug format {:?}", &e2);
+        println!("as string {}", &e2);
+        let sum = e2.iter().count();
+        assert_eq!(sum, 3);
+
+        // explicitly create the backtrace state
+        let state = ::error_chain::State {
+            next_error: Some(Box::new(Error::from(ErrorKind::Msg("World".to_string())))),
+            backtrace: InternalBacktrace::new()
+        };
+        // explicitly use it, our options here are to panic or include an additional error in the chain
+        let e1: Error = error_chain::ChainedError::new(ErrorKind::Msg("Hi".to_string()), state);
+        println!("as debug format {:?}", &e1);
+        let sum = e2.iter().count();
+        assert_eq!(sum, 3);
     }
 }

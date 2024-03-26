@@ -13,7 +13,7 @@ base64 = "0.13"
 crossbeam-queue = "0.3"
 rand = "0.8"
 lazy_static = "1.4"
-error-chain = "0.12"
+error-chain = {  version = "0.12.4", default-features = false }
 pwhash = "1.0"
 serde = { version = "1.0", features = ["derive"], optional = true }
 aerospike-rt = {path = "../aerospike-rt"}

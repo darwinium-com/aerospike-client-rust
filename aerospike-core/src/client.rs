@@ -20,6 +20,7 @@ use std::vec::Vec;
 
 use crate::batch::BatchExecutor;
 use crate::cluster::{Cluster, Node};
+use crate::commands::operate_command::OperateRecord;
 use crate::commands::{
     DeleteCommand, ExecuteUDFCommand, ExistsCommand, OperateCommand, QueryCommand, ReadCommand,
     ScanCommand, TouchCommand, WriteCommand,
@@ -445,10 +446,10 @@ impl Client {
         policy: &WritePolicy,
         key: &Key,
         ops: &[Operation<'_>],
-    ) -> Result<Record> {
+    ) -> Result<OperateRecord> {
         let mut command = OperateCommand::new(policy, self.cluster.clone(), key, ops);
         command.execute().await?;
-        Ok(command.read_command.record.unwrap())
+        Ok(command.record)
     }
 
     /// Register a package containing user-defined functions (UDF) with the cluster. This

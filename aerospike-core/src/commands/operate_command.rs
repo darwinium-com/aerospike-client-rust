@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::marker::PhantomData;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -21,14 +22,15 @@ use crate::errors::Result;
 use crate::net::Connection;
 use crate::operations::Operation;
 use crate::policy::WritePolicy;
-use crate::value::bytes_to_particle;
-use crate::{Key, ResultCode, Value};
+use crate::{Key, Record, Value};
 
-pub struct OperateCommand<'a> {
+use super::read_command;
+
+pub struct OperateCommand<'a, T: serde::de::DeserializeOwned + Send> {
     pub single_command: SingleCommand<'a>,
-    pub record: OperateRecord,
     policy: &'a WritePolicy,
     operations: &'a [Operation<'a>],
+    phantom: PhantomData<T>,
 }
 
 /// The return value from operate. Like a record, but retains the order and duplicate keys of bins.
@@ -48,7 +50,7 @@ pub struct OperateRecord {
     expiration: u32,
 }
 
-impl<'a> OperateCommand<'a> {
+impl<'a, T: serde::de::DeserializeOwned + Send> OperateCommand<'a, T> {
     pub fn new(
         policy: &'a WritePolicy,
         cluster: Arc<Cluster>,
@@ -57,50 +59,21 @@ impl<'a> OperateCommand<'a> {
     ) -> Self {
         OperateCommand {
             single_command: SingleCommand::new(cluster, key, crate::policy::Replica::Master),
-            record: OperateRecord::default(),
             policy,
             operations,
+            phantom: Default::default(),
         }
     }
 
-    pub async fn execute(&mut self) -> Result<()> {
+    pub async fn execute(&mut self) -> Result<<Self as Command>::Output> {
         SingleCommand::execute(self.policy, self).await
     }
-
-    fn parse_record(
-        &mut self,
-        conn: &mut Connection,
-        op_count: usize,
-        field_count: usize,
-    ) -> Result<()> {
-        // There can be fields in the response (setname etc). For now, ignore them. Expose them to
-        // the API if needed in the future.
-        for _ in 0..field_count {
-            let field_size = conn.buffer.read_u32(None) as usize;
-            conn.buffer.skip(4 + field_size);
-        }
-
-        self.record.bins.reserve_exact(op_count);
-        for _ in 0..op_count {
-            let op_size = conn.buffer.read_u32(None) as usize;
-            conn.buffer.skip(1);
-            let particle_type = conn.buffer.read_u8(None);
-            conn.buffer.skip(1);
-            let name_size = conn.buffer.read_u8(None) as usize;
-            let name: String = conn.buffer.read_str(name_size)?;
-
-            let particle_bytes_size = op_size - (4 + name_size);
-            let value = bytes_to_particle(particle_type, &mut conn.buffer, particle_bytes_size)?;
-            self.record.bins.push((name, value));
-        }
-
-        Ok(())
-    }
-
 }
 
 #[async_trait::async_trait]
-impl<'a> Command for OperateCommand<'a> {
+impl<'a, T: serde::de::DeserializeOwned + Send> Command for OperateCommand<'a, T> {
+    type Output = Record<T>;
+
     async fn write_timeout(
         &mut self,
         conn: &mut Connection,
@@ -108,10 +81,6 @@ impl<'a> Command for OperateCommand<'a> {
     ) -> Result<()> {
         conn.buffer.write_timeout(timeout);
         Ok(())
-    }
-
-    async fn write_buffer(&mut self, conn: &mut Connection) -> Result<()> {
-        conn.flush().await
     }
 
     fn prepare_buffer(&mut self, conn: &mut Connection) -> Result<()> {
@@ -126,46 +95,11 @@ impl<'a> Command for OperateCommand<'a> {
         self.single_command.get_node()
     }
 
-    async fn parse_result(&mut self, conn: &mut Connection) -> Result<()> {
-        if let Err(err) = conn
-            .read_buffer(super::buffer::MSG_TOTAL_HEADER_SIZE as usize)
-            .await
-        {
-            warn!("Parse result error: {}", err);
-            bail!(err);
-        }
+    async fn parse_result(&mut self, conn: &mut Connection) -> Result<Self::Output> {
+        read_command::ReadCommand::parse_result_internal(conn, false).await
+    }
 
-        conn.buffer.reset_offset();
-        let sz = conn.buffer.read_u64(Some(0));
-        let header_length = conn.buffer.read_u8(Some(8));
-        let result_code = conn.buffer.read_u8(Some(13));
-        self.record.generation = conn.buffer.read_u32(Some(14));
-        self.record.expiration = conn.buffer.read_u32(Some(18));
-        let field_count = conn.buffer.read_u16(Some(26)) as usize; // almost certainly 0
-        let op_count = conn.buffer.read_u16(Some(28)) as usize;
-        let receive_size = ((sz & 0xFFFF_FFFF_FFFF) - u64::from(header_length)) as usize;
-
-        // Read remaining message bytes
-        if receive_size > 0 {
-            if let Err(err) = conn.read_buffer(receive_size).await {
-                warn!("Parse result error: {}", err);
-                bail!(err);
-            }
-        }
-
-        match ResultCode::from(result_code) {
-            ResultCode::Ok => {
-                self.parse_record(conn, op_count, field_count)
-            }
-            ResultCode::UdfBadResponse => {
-                // record bin "FAILURE" contains details about the UDF error
-                self.parse_record(conn, op_count, field_count)?;
-                let reason = self.record
-                    .bins.iter().find(|(k, _)|k == "FAILURE").map(|(_, v)|v)
-                    .map_or(String::from("UDF Error"), ToString::to_string);
-                Err(crate::ErrorKind::UdfBadResponse(reason).into())
-            }
-            rc => Err(crate::ErrorKind::ServerError(rc).into()),
-        }
+    async fn write_buffer(&mut self, conn: &mut Connection) -> Result<()> {
+        conn.flush().await
     }
 }

@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 // Copyright 2015-2018 Aerospike, Inc.
 //
 // Portions may be licensed to Aerospike, Inc. under one or more contributor
@@ -12,11 +13,10 @@
 // WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 // License for the specific language governing permissions and limitations under
 // the License.
-use aerospike::operations;
+use aerospike::{operations, Record};
 use aerospike::{
     as_bin, as_blob, as_geo, as_key, as_list, as_map, as_val, Bins, ReadPolicy, Value, WritePolicy,
 };
-
 
 use crate::common;
 
@@ -35,9 +35,10 @@ async fn connect() {
 
     let bins = [
         as_bin!("bin999", "test string"),
+        as_bin!("bin bool", true),
         as_bin!("bin vec![int]", as_list![1u32, 2u32, 3u32]),
         as_bin!("bin vec![u8]", as_blob!(vec![1u8, 2u8, 3u8])),
-        as_bin!("bin map", as_map!(1 => 1, 2 => 2, 3 => "hi!")),
+        as_bin!("bin map", as_map!(1 => 1, 2 => 2, 3 => "hi!", 4 => false)),
         as_bin!("bin f64", 1.64f64),
         as_bin!("bin Nil", None), // Writing None erases the bin!
         as_bin!(
@@ -51,9 +52,11 @@ async fn connect() {
     ];
     client.put(&wpolicy, &key, &bins).await.unwrap();
 
-    let record = client.get(&policy, &key, Bins::All).await.unwrap();
+    let record: Record<HashMap<String, Value>> =
+        client.get(&policy, &key, Bins::All).await.unwrap();
     let bins = record.bins;
-    assert_eq!(bins.len(), 7);
+    assert_eq!(bins.len(), 8);
+    assert_eq!(bins.get("bin bool"), Some(&Value::Bool(true)));
     assert_eq!(bins.get("bin999"), Some(&Value::from("test string")));
     assert_eq!(bins.get("bin vec![int]"), Some(&as_list![1u32, 2u32, 3u32]));
     assert_eq!(
@@ -62,7 +65,7 @@ async fn connect() {
     );
     assert_eq!(
         bins.get("bin map"),
-        Some(&as_map!(1 => 1, 2 => 2, 3 => "hi!"))
+        Some(&as_map!(1 => 1, 2 => 2, 3 => "hi!", 4 => false))
     );
     assert_eq!(bins.get("bin f64"), Some(&Value::from(1.64f64)));
     assert_eq!(
@@ -79,10 +82,11 @@ async fn connect() {
     client.touch(&wpolicy, &key).await.unwrap();
 
     let bins = Bins::from(["bin999", "bin f64"]);
-    let record = client.get(&policy, &key, bins).await.unwrap();
+    let record: Record<HashMap<String, Value>> = client.get(&policy, &key, bins).await.unwrap();
     assert_eq!(record.bins.len(), 2);
 
-    let record = client.get(&policy, &key, Bins::None).await.unwrap();
+    let record: Record<HashMap<String, Value>> =
+        client.get(&policy, &key, Bins::None).await.unwrap();
     assert_eq!(record.bins.len(), 0);
 
     let exists = client.exists(&wpolicy, &key).await.unwrap();
@@ -90,7 +94,10 @@ async fn connect() {
 
     let bin = as_bin!("bin999", "test string");
     let ops = &vec![operations::put(&bin), operations::get()];
-    client.operate(&wpolicy, &key, ops).await.unwrap();
+    client
+        .operate::<HashMap<String, Value>>(&wpolicy, &key, ops)
+        .await
+        .unwrap();
 
     let existed = client.delete(&wpolicy, &key).await.unwrap();
     assert!(existed);

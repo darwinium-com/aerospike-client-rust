@@ -15,6 +15,7 @@
 
 use crate::commands::admin_command::AdminCommand;
 use crate::commands::buffer::Buffer;
+use crate::derive::readable::PreParsedValue;
 use crate::errors::{ErrorKind, Result};
 use crate::policy::ClientPolicy;
 #[cfg(all(any(feature = "rt-async-std"), not(feature = "rt-tokio")))]
@@ -25,6 +26,7 @@ use aerospike_rt::net::TcpStream;
 use aerospike_rt::time::{Duration, Instant};
 #[cfg(all(any(feature = "rt-async-std"), not(feature = "rt-tokio")))]
 use futures::{AsyncReadExt, AsyncWriteExt};
+use std::convert::TryInto;
 use std::ops::Add;
 
 #[derive(Debug)]
@@ -128,5 +130,31 @@ impl Connection {
 
     pub const fn bytes_read(&self) -> usize {
         self.bytes_read
+    }
+
+    pub(crate) async fn pre_parse_stream_bins(
+        &mut self,
+        op_count: usize,
+    ) -> Result<Vec<PreParsedValue>> {
+        let mut data_points = Vec::new();
+        data_points.reserve_exact(op_count);
+
+        for _ in 0..op_count {
+            let mut head = [0; 8];
+            self.conn.read_exact(&mut head).await?;
+            let next_len = u32::from_be_bytes(head[..4].try_into().unwrap());
+            let particle_type = head[5];
+            let name_len = head[7] as usize;
+            let mut name = [0; 15];
+            self.conn.read_exact(&mut name[..name_len]).await?;
+
+            let mut particle = Vec::new();
+            particle.resize(next_len as usize - 4 - name_len, 0);
+            self.conn.read_exact(&mut particle).await?;
+
+            data_points.push(PreParsedValue{particle_type, name, name_len: head[7], particle});
+        }
+
+        Ok(data_points)
     }
 }

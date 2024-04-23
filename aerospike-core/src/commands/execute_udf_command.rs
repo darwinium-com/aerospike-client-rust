@@ -23,15 +23,15 @@ use crate::net::Connection;
 use crate::policy::WritePolicy;
 use crate::{Bins, Key, Value};
 
-pub struct ExecuteUDFCommand<'a> {
-    pub read_command: ReadCommand<'a>,
+pub struct ExecuteUDFCommand<'a, T: serde::de::DeserializeOwned + Send> {
+    pub read_command: ReadCommand<'a, T>,
     policy: &'a WritePolicy,
     package_name: &'a str,
     function_name: &'a str,
     args: Option<&'a [Value]>,
 }
 
-impl<'a> ExecuteUDFCommand<'a> {
+impl<'a, T: serde::de::DeserializeOwned + Send> ExecuteUDFCommand<'a, T> {
     pub fn new(
         policy: &'a WritePolicy,
         cluster: Arc<Cluster>,
@@ -49,13 +49,14 @@ impl<'a> ExecuteUDFCommand<'a> {
         }
     }
 
-    pub async fn execute(&mut self) -> Result<()> {
+    pub async fn execute(&mut self) -> Result<<Self as Command>::Output> {
         SingleCommand::execute(self.policy, self).await
     }
 }
 
 #[async_trait::async_trait]
-impl<'a> Command for ExecuteUDFCommand<'a> {
+impl<'a, T: serde::de::DeserializeOwned + Send> Command for ExecuteUDFCommand<'a, T> {
+    type Output = crate::Record<T>;
     async fn write_timeout(
         &mut self,
         conn: &mut Connection,
@@ -63,10 +64,6 @@ impl<'a> Command for ExecuteUDFCommand<'a> {
     ) -> Result<()> {
         conn.buffer.write_timeout(timeout);
         Ok(())
-    }
-
-    async fn write_buffer(&mut self, conn: &mut Connection) -> Result<()> {
-        conn.flush().await
     }
 
     fn prepare_buffer(&mut self, conn: &mut Connection) -> Result<()> {
@@ -83,7 +80,11 @@ impl<'a> Command for ExecuteUDFCommand<'a> {
         self.read_command.get_node()
     }
 
-    async fn parse_result(&mut self, conn: &mut Connection) -> Result<()> {
+    async fn parse_result(&mut self, conn: &mut Connection) -> Result<Self::Output> {
         self.read_command.parse_result(conn).await
+    }
+
+    async fn write_buffer(&mut self, conn: &mut Connection) -> Result<()> {
+        conn.flush().await
     }
 }

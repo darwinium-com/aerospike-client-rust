@@ -81,10 +81,10 @@ impl<'a> SingleCommand<'a> {
     // EXECUTE
     //
 
-    pub async fn execute(
+    pub async fn execute<C: commands::Command>(
         policy: &(dyn Policy + Send + Sync),
-        cmd: &'a mut (dyn commands::Command + Send),
-    ) -> Result<()> {
+        cmd: &'a mut C,
+    ) -> Result<C::Output> {
         let mut iterations = 0;
 
         // set timeout outside the loop
@@ -149,18 +149,17 @@ impl<'a> SingleCommand<'a> {
             }
 
             // Parse results.
-            if let Err(err) = try_with_timeout(deadline, cmd.parse_result(&mut conn)).await {
+            let result = try_with_timeout(deadline, cmd.parse_result(&mut conn)).await;
+            if let Err(err) = result.as_ref() {
                 // close the connection
                 // cancelling/closing the batch/multi commands will return an error, which will
                 // close the connection to throw away its data and signal the server about the
                 // situation. We will not put back the connection in the buffer.
-                if !commands::keep_connection(&err) {
+                if !commands::keep_connection(err) {
                     conn.invalidate();
                 }
-                return Err(err);
-            } else {
-                return Ok(());
             }
+            return result;
         }
 
         bail!(ErrorKind::Connection("Timeout".to_string()))

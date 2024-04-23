@@ -13,7 +13,6 @@
 // limitations under the License.
 
 use aerospike_rt::time::Instant;
-use std::collections::HashMap;
 use std::sync::Arc;
 
 use crate::cluster::{Node, Cluster};
@@ -22,27 +21,29 @@ use crate::commands;
 use crate::errors::{ErrorKind, Result, ResultExt};
 use crate::net::Connection;
 use crate::policy::{BatchPolicy, Policy, PolicyLike, Replica};
-use crate::{value, BatchRead, Record, ResultCode, Value};
+use crate::{BatchRead, Record, ResultCode};
 use aerospike_rt::sleep;
 
-struct BatchRecord {
+struct BatchRecord<T: serde::de::DeserializeOwned> {
     batch_index: usize,
-    record: Option<Record>,
+    record: Option<Record<T>>,
 }
 
 #[derive(Clone, Debug)]
-pub struct BatchReadCommand {
+pub struct BatchReadCommand<T: serde::de::DeserializeOwned> {
     policy: BatchPolicy,
     pub node: Arc<Node>,
-    pub batch_reads: Vec<(BatchRead, usize)>,
+    pub batch_reads: Vec<BatchRead<T>>,
+    pub original_indexes: Vec<usize>,
 }
 
-impl BatchReadCommand {
-    pub fn new(policy: &BatchPolicy, node: Arc<Node>, batch_reads: Vec<(BatchRead, usize)>) -> Self {
+impl<T: serde::de::DeserializeOwned> BatchReadCommand<T> {
+    pub fn new(policy: &BatchPolicy, node: Arc<Node>, batch_reads: Vec<BatchRead<T>>, original_indexes: Vec<usize>) -> Self {
         BatchReadCommand {
             policy: policy.clone(),
             node,
             batch_reads,
+            original_indexes,
         }
     }
 
@@ -55,15 +56,18 @@ impl BatchReadCommand {
 
         // Execute command until successful, timed out or maximum iterations have been reached.
         loop {
-            let success = if iterations & 1 == 0 || matches!(self.policy.replica, Replica::Master) {
+            if iterations & 1 == 0 || matches!(self.policy.replica, Replica::Master) {
                 // For even iterations, we request all keys from the same node for efficiency.
-                Self::request_group(&mut self.batch_reads, &self.policy, self.node.clone(), deadline).await?
+                if Self::request_group(&mut self.batch_reads, &self.policy, self.node.clone(), deadline).await? {
+                    // command has completed successfully.  Exit method.
+                    return Ok(self);
+                }
             } else {
                 // However, for odd iterations try the second choice for each. Instead of re-sharding the batch (as the second choice may not correspond to the first), just try each by itself.
                 let mut all_successful = true;
                 for individual_read in self.batch_reads.chunks_mut(1) {
                     // Find somewhere else to try.
-                    let partition = Partition::new_by_key(&individual_read[0].0.key);
+                    let partition = Partition::new_by_key(&individual_read[0].key);
                     let node = cluster.get_node(&partition, self.policy.replica, Arc::downgrade(&self.node))?;
 
                     if !Self::request_group(individual_read, &self.policy, node, deadline).await? {
@@ -71,13 +75,12 @@ impl BatchReadCommand {
                         break;
                     }
                 }
-                all_successful
-            };
 
-            if success {
-                // command has completed successfully.  Exit method.
-                return Ok(self);
-            }
+                if all_successful {
+                    // command has completed successfully.  Exit method.
+                    return Ok(self);
+                }
+            };
 
             iterations += 1;
 
@@ -105,7 +108,7 @@ impl BatchReadCommand {
         }
     }
 
-    async fn request_group(batch_reads: &mut [(BatchRead, usize)], policy: &BatchPolicy, node: Arc<Node>, deadline: Option<Instant>) -> Result<bool> {
+    async fn request_group(batch_reads: &mut [BatchRead<T>], policy: &BatchPolicy, node: Arc<Node>, deadline: Option<Instant>) -> Result<bool> {
         let mut conn = match crate::commands::single_command::try_with_timeout(deadline, node.get_connection()).await {
             Ok(conn) => conn,
             Err(err) => {
@@ -144,7 +147,7 @@ impl BatchReadCommand {
         }
     }
 
-    async fn parse_group(batch_reads: &mut [(BatchRead, usize)], conn: &mut Connection, size: usize) -> Result<bool> {
+    async fn parse_group(batch_reads: &mut [BatchRead<T>], conn: &mut Connection, size: usize) -> Result<bool> {
         while conn.bytes_read() < size {
             conn.read_buffer(commands::buffer::MSG_REMAINING_HEADER_SIZE as usize)
                 .await?;
@@ -154,14 +157,14 @@ impl BatchReadCommand {
                     let batch_read = batch_reads
                         .get_mut(batch_record.batch_index)
                         .expect("Invalid batch index");
-                    batch_read.0.record = batch_record.record;
+                    batch_read.record = batch_record.record;
                 }
             }
         }
         Ok(true)
     }
 
-    async fn parse_record(conn: &mut Connection) -> Result<Option<BatchRecord>> {
+    async fn parse_record(conn: &mut Connection) -> Result<Option<BatchRecord<T>>> {
         // if cmd is the end marker of the response, do not proceed further
         let info3 = conn.buffer.read_u8(Some(3));
         if info3 & commands::buffer::INFO3_LAST == commands::buffer::INFO3_LAST {
@@ -181,27 +184,12 @@ impl BatchReadCommand {
         let field_count = conn.buffer.read_u16(None) as usize; // almost certainly 0
         let op_count = conn.buffer.read_u16(None) as usize;
 
-        let key = commands::StreamCommand::parse_key(conn, field_count).await?;
+        let key = commands::StreamCommand::<T>::parse_key(conn, field_count).await?;
 
         let record = if found_key {
-            let mut bins: HashMap<String, Value> = HashMap::with_capacity(op_count);
+            let reader = crate::derive::readable::BinsDeserializer{ bins: conn.pre_parse_stream_bins(op_count).await?.into() };
 
-            for _ in 0..op_count {
-                conn.read_buffer(8).await?;
-                let op_size = conn.buffer.read_u32(None) as usize;
-                conn.buffer.skip(1);
-                let particle_type = conn.buffer.read_u8(None);
-                conn.buffer.skip(1);
-                let name_size = conn.buffer.read_u8(None) as usize;
-                conn.read_buffer(name_size).await?;
-                let name = conn.buffer.read_str(name_size)?;
-                let particle_bytes_size = op_size - (4 + name_size);
-                conn.read_buffer(particle_bytes_size).await?;
-                let value =
-                    value::bytes_to_particle(particle_type, &mut conn.buffer, particle_bytes_size)?;
-                bins.insert(name, value);
-            }
-
+            let bins = T::deserialize(reader)?;
             Some(Record::new(Some(key), bins, generation, expiration))
         } else {
             None
@@ -212,7 +200,7 @@ impl BatchReadCommand {
         }))
     }
 
-    async fn parse_result(batch_reads: &mut [(BatchRead, usize)], conn: &mut Connection) -> Result<()> {
+    async fn parse_result(batch_reads: &mut [BatchRead<T>], conn: &mut Connection) -> Result<()> {
         loop {
             conn.read_buffer(8).await?;
             let size = conn.buffer.read_msg_size(None);

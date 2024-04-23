@@ -561,6 +561,28 @@ impl Cluster {
         namespace.get_node(self, partition, replica, last_tried)
     }
 
+    pub fn n_nodes_for_policy(&self, namespace: &str, replica: crate::policy::Replica) -> usize {
+        let partitions = self.partition_write_map.lock().unwrap();
+
+        let Some(partition) = partitions
+            .get(namespace) else {
+                return 0;
+        };
+
+        match replica {
+            crate::policy::Replica::Master | crate::policy::Replica::Sequence => {
+                partition.nodes.iter().flat_map(|(_, node)|node.as_ref()).count()
+            },
+            crate::policy::Replica::PreferRack => {
+                let Some(rack_ids) = self.client_policy.rack_ids.as_ref() else {
+                    return 0;
+                };
+                partition.nodes.iter().flat_map(|(_, node)|node.as_ref()).filter(|node|node.is_in_rack(namespace, rack_ids))
+                    .count()
+            },
+        }
+    }
+
     pub fn get_random_node(&self) -> Result<Arc<Node>> {
         let node_array = self.nodes();
         let length = node_array.len() as isize;

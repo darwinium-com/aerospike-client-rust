@@ -142,6 +142,7 @@ impl Connection {
         for _ in 0..op_count {
             let mut head = [0; 8];
             self.conn.read_exact(&mut head).await?;
+            self.bytes_read += 8;
             let next_len = u32::from_be_bytes(head[..4].try_into().unwrap());
             let particle_type = head[5];
             let name_len = head[7] as usize;
@@ -151,6 +152,7 @@ impl Connection {
             let mut particle = Vec::new();
             particle.resize(next_len as usize - 4 - name_len, 0);
             self.conn.read_exact(&mut particle).await?;
+            self.bytes_read += particle.len();
 
             data_points.push(PreParsedValue{particle_type, name, name_len: head[7], particle});
         }

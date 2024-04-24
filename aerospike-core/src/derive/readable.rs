@@ -854,7 +854,7 @@ struct CDTListOrMap<'m> {
 
 impl<'m> CDTListOrMap<'m> {
     fn new(
-        remaining: usize,
+        mut remaining: usize,
         buffer: &'m [u8],
         upto: &'m mut usize,
         is_map: bool,
@@ -865,6 +865,7 @@ impl<'m> CDTListOrMap<'m> {
             if is_map {
                 serde::de::IgnoredAny::deserialize(CDTDecoder(buffer, upto)).unwrap();
             }
+            remaining -= 1;
         }
         CDTListOrMap {
             remaining,

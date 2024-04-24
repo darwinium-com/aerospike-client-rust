@@ -509,7 +509,9 @@ impl<'de> serde::de::Deserializer<'de> for PreParsedValue {
             ParticleType::MAP | ParticleType::LIST => {
                 let mut read = 0;
                 let cdt_reader = CDTDecoder(self.particle(), &mut read);
-                cdt_reader.deserialize_any(visitor)
+                let out = cdt_reader.deserialize_any(visitor)?;
+                assert_eq!(read, self.particle().len());
+                Ok(out)
             }
             ParticleType::DIGEST => todo!(),
             ParticleType::LDT => todo!(),

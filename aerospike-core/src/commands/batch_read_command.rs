@@ -148,18 +148,22 @@ impl<T: serde::de::DeserializeOwned> BatchReadCommand<T> {
     }
 
     async fn parse_group(batch_reads: &mut [BatchRead<T>], conn: &mut Connection, size: usize) -> Result<bool> {
+        let mut count = 0;
         while conn.bytes_read() < size {
+            let bytes_read = conn.bytes_read();
             conn.read_buffer(commands::buffer::MSG_REMAINING_HEADER_SIZE as usize)
                 .await?;
             match Self::parse_record(conn).await? {
                 None => return Ok(false),
                 Some(batch_record) => {
-                    let batch_read = batch_reads
-                        .get_mut(batch_record.batch_index)
-                        .expect("Invalid batch index");
+                    let Some(batch_read) = batch_reads
+                        .get_mut(batch_record.batch_index) else {
+                        panic!("Invalid batch index {} of {}, bytes: {} of {}", count, batch_reads.len(), bytes_read, size);
+                    };
                     batch_read.record = batch_record.record;
                 }
             }
+            count += 1;
         }
         Ok(true)
     }

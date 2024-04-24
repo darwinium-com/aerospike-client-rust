@@ -22,7 +22,7 @@ use crate::errors::Result;
 use crate::net::Connection;
 use crate::operations::Operation;
 use crate::policy::WritePolicy;
-use crate::{Key, Record, Value};
+use crate::{Key, Record};
 
 use super::read_command;
 
@@ -31,23 +31,6 @@ pub struct OperateCommand<'a, T: serde::de::DeserializeOwned + Send> {
     policy: &'a WritePolicy,
     operations: &'a [Operation<'a>],
     phantom: PhantomData<T>,
-}
-
-/// The return value from operate. Like a record, but retains the order and duplicate keys of bins.
-#[derive(Default)]
-pub struct OperateRecord {
-    /// Record key. When reading a record from the database, the key is not set in the returned
-    /// Record struct.
-    pub key: Option<Key>,
-
-    /// Map of named record bins.
-    pub bins: Vec<(String, Value)>,
-
-    /// Record modification count.
-    pub generation: u32,
-
-    /// Date record will expire, in seconds from Jan 01 2010, 00:00:00 UTC.
-    expiration: u32,
 }
 
 impl<'a, T: serde::de::DeserializeOwned + Send> OperateCommand<'a, T> {

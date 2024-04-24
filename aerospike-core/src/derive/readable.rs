@@ -846,7 +846,33 @@ impl<'de, Var: for<'a> Deserializer<'a, Error = crate::Error>> VariantAccess<'de
 
 struct CDTDecoder<'m>(&'m [u8], &'m mut usize);
 
-struct CDTListOrMap<'m>(usize, &'m [u8], &'m mut usize);
+struct CDTListOrMap<'m> {
+    remaining: usize,
+    buffer: &'m [u8],
+    upto: &'m mut usize,
+}
+
+impl<'m> CDTListOrMap<'m> {
+    fn new(
+        remaining: usize,
+        buffer: &'m [u8],
+        upto: &'m mut usize,
+        is_map: bool,
+    ) -> Self {
+        // Skip the extensions
+        if remaining > 0 && is_ext(buffer[*upto]) {
+            serde::de::IgnoredAny::deserialize(CDTDecoder(buffer, upto)).unwrap();
+            if is_map {
+                serde::de::IgnoredAny::deserialize(CDTDecoder(buffer, upto)).unwrap();
+            }
+        }
+        CDTListOrMap {
+            remaining,
+            buffer,
+            upto,
+        }
+    }
+}
 
 impl<'m> CDTDecoder<'m> {
     fn as_unexpected(mut self, ptype: u8) -> std::result::Result<serde::de::Unexpected<'m>, Error> {
@@ -951,8 +977,8 @@ impl<'l, 'm> Deserializer<'l> for CDTDecoder<'m> {
         let ptype = self.take_byte()?;
         match ptype {
             0x00..=0x7f => visitor.visit_u8(ptype as u8),
-            0x80..=0x8f => visitor.visit_map(CDTListOrMap((ptype & 0x0f) as usize, self.0, self.1)),
-            0x90..=0x9f => visitor.visit_seq(CDTListOrMap((ptype & 0x0f) as usize, self.0, self.1)),
+            0x80..=0x8f => visitor.visit_map(CDTListOrMap::new((ptype & 0x0f) as usize, self.0, self.1, true)),
+            0x90..=0x9f => visitor.visit_seq(CDTListOrMap::new((ptype & 0x0f) as usize, self.0, self.1, false)),
             0xa0..=0xbf => deserialize_any_buffer(self, visitor, (ptype & 0x1f) as usize),
             0xc0 => visitor.visit_none(),
             0xc2 => visitor.visit_bool(false),
@@ -981,19 +1007,19 @@ impl<'l, 'm> Deserializer<'l> for CDTDecoder<'m> {
             0xd3 => visitor.visit_i64(i64::from_be_bytes(self.take_bytes()?)),
             0xdc => {
                 let count = u16::from_be_bytes(self.take_bytes()?) as usize;
-                visitor.visit_seq(CDTListOrMap(count, self.0, self.1))
+                visitor.visit_seq(CDTListOrMap::new(count, self.0, self.1, false))
             }
             0xdd => {
                 let count = u32::from_be_bytes(self.take_bytes()?) as usize;
-                visitor.visit_seq(CDTListOrMap(count, self.0, self.1))
+                visitor.visit_seq(CDTListOrMap::new(count, self.0, self.1, false))
             }
             0xde => {
                 let count = u16::from_be_bytes(self.take_bytes()?) as usize;
-                visitor.visit_map(CDTListOrMap(count, self.0, self.1))
+                visitor.visit_map(CDTListOrMap::new(count, self.0, self.1, true))
             }
             0xdf => {
                 let count = u32::from_be_bytes(self.take_bytes()?) as usize;
-                visitor.visit_map(CDTListOrMap(count, self.0, self.1))
+                visitor.visit_map(CDTListOrMap::new(count, self.0, self.1, true))
             }
             0xe0..=0xff => {
                 let value = (ptype - 0xe0) as i8 - 32;
@@ -1296,14 +1322,14 @@ impl<'l, 'm> Deserializer<'l> for CDTDecoder<'m> {
         V: serde::de::Visitor<'l> {
         let ptype = self.take_byte()?;
         match ptype {
-            0x90..=0x9f => visitor.visit_seq(CDTListOrMap((ptype & 0x0f) as usize, self.0, self.1)),
+            0x90..=0x9f => visitor.visit_seq(CDTListOrMap::new((ptype & 0x0f) as usize, self.0, self.1, false)),
             0xdc => {
                 let count = u16::from_be_bytes(self.take_bytes()?) as usize;
-                visitor.visit_seq(CDTListOrMap(count, self.0, self.1))
+                visitor.visit_seq(CDTListOrMap::new(count, self.0, self.1, false))
             }
             0xdd => {
                 let count = u32::from_be_bytes(self.take_bytes()?) as usize;
-                visitor.visit_seq(CDTListOrMap(count, self.0, self.1))
+                visitor.visit_seq(CDTListOrMap::new(count, self.0, self.1, false))
             }
             _ => Err(Self::Error::invalid_type(self.as_unexpected(ptype)?, &visitor))
         }
@@ -1331,14 +1357,14 @@ impl<'l, 'm> Deserializer<'l> for CDTDecoder<'m> {
         V: serde::de::Visitor<'l> {
         let ptype = self.take_byte()?;
         match ptype {
-            0x80..=0x8f => visitor.visit_map(CDTListOrMap((ptype & 0x0f) as usize, self.0, self.1)),
+            0x80..=0x8f => visitor.visit_map(CDTListOrMap::new((ptype & 0x0f) as usize, self.0, self.1, true)),
             0xde => {
                 let count = u16::from_be_bytes(self.take_bytes()?) as usize;
-                visitor.visit_map(CDTListOrMap(count, self.0, self.1))
+                visitor.visit_map(CDTListOrMap::new(count, self.0, self.1, true))
             }
             0xdf => {
                 let count = u32::from_be_bytes(self.take_bytes()?) as usize;
-                visitor.visit_map(CDTListOrMap(count, self.0, self.1))
+                visitor.visit_map(CDTListOrMap::new(count, self.0, self.1, true))
             }
             _ => Err(Self::Error::invalid_type(self.as_unexpected(ptype)?, &visitor))
         }
@@ -1427,6 +1453,18 @@ impl<'l, 'm> Deserializer<'l> for CDTDecoder<'m> {
                 let count = u32::from_be_bytes(self.take_bytes()?);
                 *self.1 += count as usize;
             }
+            0xc7 => {
+                let count = 1 + u8::from_be_bytes(self.take_bytes()?);
+                *self.1 += count as usize;
+            }
+            0xc8 => {
+                let count = 1 + u16::from_be_bytes(self.take_bytes()?);
+                *self.1 += count as usize;
+            }
+            0xc9 => {
+                let count = 1 + u32::from_be_bytes(self.take_bytes()?);
+                *self.1 += count as usize;
+            }
             0xcc | 0xd0 => {self.take_byte()?;}
             0xcd | 0xd1 => {self.take_bytes::<2>()?;}
             0xca | 0xce | 0xd2 => {self.take_bytes::<4>()?;}
@@ -1459,22 +1497,22 @@ impl<'l, 'm> MapAccess<'l> for CDTListOrMap<'m> {
     fn next_key_seed<K>(&mut self, seed: K) -> std::prelude::v1::Result<Option<K::Value>, Self::Error>
     where
         K: serde::de::DeserializeSeed<'l> {
-        if self.0 == 0 {
+        if self.remaining == 0 {
             Ok(None)
         } else {
-            self.0 -= 1;
-            seed.deserialize(CDTDecoder(self.1, self.2)).map(Some)
+            self.remaining -= 1;
+            seed.deserialize(CDTDecoder(self.buffer, self.upto)).map(Some)
         }
     }
 
     fn next_value_seed<V>(&mut self, seed: V) -> std::prelude::v1::Result<V::Value, Self::Error>
     where
         V: serde::de::DeserializeSeed<'l> {
-        seed.deserialize(CDTDecoder(self.1, self.2))
+        seed.deserialize(CDTDecoder(self.buffer, self.upto))
     }
 
     fn size_hint(&self) -> Option<usize> {
-        Some(self.0)
+        Some(self.remaining)
     }
 }
 
@@ -1484,17 +1522,21 @@ impl<'l, 'm> SeqAccess<'l> for CDTListOrMap<'m> {
     fn next_element_seed<T>(&mut self, seed: T) -> std::prelude::v1::Result<Option<T::Value>, Self::Error>
     where
         T: serde::de::DeserializeSeed<'l> {
-        if self.0 == 0 {
+        if self.remaining == 0 {
             Ok(None)
         } else {
-            self.0 -= 1;
-            seed.deserialize(CDTDecoder(self.1, self.2)).map(Some)
+            self.remaining -= 1;
+            seed.deserialize(CDTDecoder(self.buffer, self.upto)).map(Some)
         }
     }
 
     fn size_hint(&self) -> Option<usize> {
-        Some(self.0)
+        Some(self.remaining)
     }
+}
+
+const fn is_ext(byte: u8) -> bool {
+    matches!(byte, 0xc7 | 0xc8 | 0xc9 | 0xd4 | 0xd5 | 0xd6 | 0xd7 | 0xd8)
 }
 
 /// Includes the data for the Value part of a Bin.

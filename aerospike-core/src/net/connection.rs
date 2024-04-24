@@ -148,6 +148,7 @@ impl Connection {
             let name_len = head[7] as usize;
             let mut name = [0; 15];
             self.conn.read_exact(&mut name[..name_len]).await?;
+            self.bytes_read += name_len;
 
             let mut particle = Vec::new();
             particle.resize(next_len as usize - 4 - name_len, 0);

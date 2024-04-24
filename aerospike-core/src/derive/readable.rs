@@ -1696,4 +1696,21 @@ mod tests {
         let deserialized = crate::Value::deserialize(as_bin.clone()).unwrap();
         assert_eq!(deserialized, myval);
     }
+
+    #[test]
+    fn destream_bytes() {
+        let myval = crate::Value::from(Vec::from([0_u8, 1_u8, 2_u8, 3_u8, 4_u8, 5_u8]));
+        
+        let mut buffer = crate::Buffer::new(1024);
+        let myval = crate::Value::List(vec![
+            myval
+        ]);
+        
+        buffer.resize_buffer(myval.estimate_size()).unwrap();
+        myval.write_to(&mut buffer);
+
+        let as_bin = new_preparsed(20, "binname", buffer.data_buffer);
+        let deserialized = crate::Value::deserialize(as_bin.clone()).unwrap();
+        assert_eq!(deserialized, myval);
+    }
 }

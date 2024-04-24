@@ -132,6 +132,12 @@ impl Connection {
         self.bytes_read
     }
 
+    async fn read_exact_direct<'a>(&'a mut self, buf: &'a mut [u8]) -> std::io::Result<usize> {
+        let result = self.conn.read_exact(buf).await?;
+        self.bytes_read += buf.len();
+        Ok(result)
+    }
+
     pub(crate) async fn pre_parse_stream_bins(
         &mut self,
         op_count: usize,
@@ -141,19 +147,16 @@ impl Connection {
 
         for _ in 0..op_count {
             let mut head = [0; 8];
-            self.conn.read_exact(&mut head).await?;
-            self.bytes_read += 8;
+            self.read_exact_direct(&mut head).await?;
             let next_len = u32::from_be_bytes(head[..4].try_into().unwrap());
             let particle_type = head[5];
             let name_len = head[7] as usize;
             let mut name = [0; 15];
-            self.conn.read_exact(&mut name[..name_len]).await?;
-            self.bytes_read += name_len;
+            self.read_exact_direct(&mut name[..name_len]).await?;
 
             let mut particle = Vec::new();
             particle.resize(next_len as usize - 4 - name_len, 0);
-            self.conn.read_exact(&mut particle).await?;
-            self.bytes_read += particle.len();
+            self.read_exact_direct(&mut particle).await?;
 
             data_points.push(PreParsedValue{particle_type, name, name_len: head[7], particle});
         }

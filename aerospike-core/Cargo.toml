@@ -15,14 +15,15 @@ rand = "0.8"
 lazy_static = "1.4"
 error-chain = {  version = "0.12.4", default-features = false }
 pwhash = "1.0"
-serde = { version = "1.0", features = ["derive"], optional = true }
+serde = { version = "1.0", features = ["derive"] }
+serde_bytes = "0.11"
 aerospike-rt = {path = "../aerospike-rt"}
 futures = {version = "0.3.16" }
 async-trait = "0.1.51"
 num = "0.4.0"
 
 [features]
-serialization = ["serde"]
+serialization = []
 rt-tokio = ["aerospike-rt/rt-tokio"]
 rt-async-std = ["aerospike-rt/rt-async-std"]
 

@@ -226,7 +226,10 @@ pub enum Value {
     String(String),
 
     /// Byte array value.
-    Blob(Vec<u8>),
+    Blob(
+        #[serde(with = "serde_bytes")]
+        Vec<u8>
+    ),
 
     /// List data type is an ordered collection of values. Lists can contain values of any
     /// supported data type. List data order is maintained on writes and reads.
@@ -246,7 +249,10 @@ pub enum Value {
     GeoJSON(String),
 
     /// HLL value
-    HLL(Vec<u8>),
+    HLL(
+        #[serde(with = "serde_bytes")]
+        Vec<u8>
+    ),
 }
 
 #[allow(clippy::derive_hash_xor_eq)]

@@ -13,6 +13,7 @@
 // limitations under the License.
 
 use std::collections::VecDeque;
+use std::marker::PhantomData;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -28,7 +29,7 @@ use crate::{derive, Bins, Key, Record, ResultCode};
 
 pub struct ReadCommand<'a, T: serde::de::DeserializeOwned + Send> {
     pub single_command: SingleCommand<'a>,
-    pub record: Option<Record<T>>,
+    record: PhantomData<T>,
     policy: &'a BasePolicy,
     bins: Bins,
 }
@@ -39,7 +40,7 @@ impl<'a, T: serde::de::DeserializeOwned + Send> ReadCommand<'a, T> {
             single_command: SingleCommand::new(cluster, key, replica),
             bins,
             policy,
-            record: None,
+            record: Default::default(),
         }
     }
 

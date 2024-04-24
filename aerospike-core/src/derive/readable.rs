@@ -21,6 +21,7 @@ use serde::de::MapAccess;
 use serde::de::SeqAccess;
 use serde::de::VariantAccess;
 use serde::de::Visitor;
+use serde::Deserialize;
 use serde::Deserializer;
 
 use crate::errors::Result;
@@ -655,7 +656,12 @@ impl<'de> serde::de::Deserializer<'de> for PreParsedValue {
     fn deserialize_bytes<V>(self, visitor: V) -> std::result::Result<V::Value, Self::Error>
     where
         V: serde::de::Visitor<'de> {
-        self.deserialize_any(visitor)
+        match self.particle_type() {
+            ParticleType::NULL => {
+                visitor.visit_none()
+            }
+            _ => visitor.visit_bytes(self.particle())
+        }
     }
 
     fn deserialize_byte_buf<V>(self, visitor: V) -> std::result::Result<V::Value, Self::Error>
@@ -665,28 +671,7 @@ impl<'de> serde::de::Deserializer<'de> for PreParsedValue {
             ParticleType::NULL => {
                 visitor.visit_none()
             }
-            ParticleType::INTEGER => {
-                visitor.visit_i64(self.as_int()?)
-            }
-            ParticleType::FLOAT => {
-                visitor.visit_f64(self.as_float()?)
-            }
-            ParticleType::STRING | ParticleType::GEOJSON => {
-                visitor.visit_string(self.into_string()?)
-            }
-            ParticleType::BLOB | ParticleType::HLL => {
-                visitor.visit_byte_buf(self.into_blob())
-            }
-            ParticleType::BOOL => {
-                visitor.visit_bool(self.as_bool()?)
-            }
-            ParticleType::MAP | ParticleType::LIST => {
-                let mut read = 0;
-                let cdt_reader = CDTDecoder(self.particle(), &mut read);
-                cdt_reader.deserialize_any(visitor)
-            }
-            ParticleType::DIGEST => todo!(),
-            ParticleType::LDT => todo!(),
+            _ => visitor.visit_byte_buf(self.into_blob())
         }
     }
 
@@ -918,7 +903,7 @@ impl<'m> CDTDecoder<'m> {
     }
 
     fn take_bytes<const N: usize>(&mut self) -> std::result::Result<[u8; N], Error> {
-        if *self.1 + N >= self.0.len() {
+        if *self.1 + N > self.0.len() {
             Err(Error::from_kind(crate::errors::ErrorKind::Derive("Ran out of data".to_string())))
         } else {
             let offset = *self.1 as isize;
@@ -1215,37 +1200,49 @@ impl<'l, 'm> Deserializer<'l> for CDTDecoder<'m> {
        self.deserialize_str(visitor)
     }
 
+    // this is a very permissive handler that allows 
     fn deserialize_bytes<V>(mut self, visitor: V) -> std::prelude::v1::Result<V::Value, Self::Error>
     where
         V: serde::de::Visitor<'l> {
         fn deserialize_any_buffer<'l, 'm, V>(mut deserializer: CDTDecoder<'m>, visitor: V, count: usize) -> std::prelude::v1::Result<V::Value, crate::errors::Error>
         where
             V: serde::de::Visitor<'l> {
-            let ptype = ParticleType::from(deserializer.take_byte()?);
-            let body = deserializer.take_nbyte(count - 1)?;
-            if matches!(ptype, ParticleType::STRING | ParticleType::GEOJSON) {
-                Err(crate::errors::Error::invalid_type(serde::de::Unexpected::Str(std::str::from_utf8(body)?), &visitor))
-            } else {
-                visitor.visit_bytes(body)
-            }
+            let body = deserializer.take_nbyte(count)?;
+            // Allows string or geojson to be gotten as bytes
+            visitor.visit_bytes(&body[1..])
         }
 
-        let ptype = self.take_byte()?;
+        // Since we allow the permissive parsing below, do not tamper with what we have here
+        let ptype = self.0[*self.1];
         match ptype {
-            0xa0..=0xbf => deserialize_any_buffer(self, visitor, (ptype & 0x1f) as usize),
+            0xa0..=0xbf => {
+                let _ = self.take_byte();
+                deserialize_any_buffer(self, visitor, (ptype & 0x1f) as usize)
+            }
             0xc4 | 0xd9 => {
+                let _ = self.take_byte();
                 let count = u8::from_be_bytes(self.take_bytes()?);
                 deserialize_any_buffer(self, visitor, count as usize)
             }
             0xc5 | 0xda => {
+                let _ = self.take_byte();
                 let count = u16::from_be_bytes(self.take_bytes()?);
                 deserialize_any_buffer(self, visitor, count as usize)
             }
             0xc6 | 0xdb => {
+                let _ = self.take_byte();
                 let count = u32::from_be_bytes(self.take_bytes()?);
                 deserialize_any_buffer(self, visitor, count as usize)
             }
-            _ => Err(Self::Error::invalid_type(self.as_unexpected(ptype)?, &visitor))
+            _ => {
+                // Permissivly parse _anything_ into a byte array for pass-through.
+                // The byte array is always immediately after this particle.
+                let start_at = *self.1 + 1;
+                // Deserialize whatever we have here to see how long it is.
+                serde::de::IgnoredAny::deserialize(CDTDecoder(self.0, self.1))?;
+                // The end of whatever is here must be where the upto pointer is now at.
+                visitor.visit_bytes(&self.0[start_at..*self.1])
+            }
         }
     }
 
@@ -1653,5 +1650,48 @@ mod tests {
             crate::Value::Int(2),
             crate::Value::String("Hello world".to_string()),
         ]));
+    }
+
+    #[test]
+    fn destream_f64_value() {
+        let mut buffer = crate::Buffer::new(1024);
+        let myval = crate::Value::from(0.0023_f64);
+        
+        buffer.resize_buffer(myval.estimate_size()).unwrap();
+        myval.write_to(&mut buffer);
+
+        let as_bin = new_preparsed(myval.particle_type() as u8, "binname", buffer.data_buffer);
+
+        let deserialized = crate::Value::deserialize(as_bin.clone()).unwrap();
+        assert_eq!(deserialized, myval);
+
+        let mut buffer = crate::Buffer::new(1024);
+        let myval = crate::Value::List(vec![
+            myval
+        ]);
+        
+        buffer.resize_buffer(myval.estimate_size()).unwrap();
+        myval.write_to(&mut buffer);
+
+        let as_bin = new_preparsed(20, "binname", buffer.data_buffer);
+        let deserialized = crate::Value::deserialize(as_bin.clone()).unwrap();
+        assert_eq!(deserialized, myval);
+    }
+
+    #[test]
+    fn destream_f32_value() {
+        let myval = crate::Value::from(0.0023_f32);
+        
+        let mut buffer = crate::Buffer::new(1024);
+        let myval = crate::Value::List(vec![
+            myval
+        ]);
+        
+        buffer.resize_buffer(myval.estimate_size()).unwrap();
+        myval.write_to(&mut buffer);
+
+        let as_bin = new_preparsed(20, "binname", buffer.data_buffer);
+        let deserialized = crate::Value::deserialize(as_bin.clone()).unwrap();
+        assert_eq!(deserialized, myval);
     }
 }

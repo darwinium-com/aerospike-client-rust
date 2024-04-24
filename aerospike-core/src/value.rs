@@ -85,10 +85,10 @@ impl<'l> serde::de::Deserialize<'l> for FloatValue {
             fn visit_bytes<E>(self, v: &[u8]) -> StdResult<Self::Value, E>
                 where
                     E: serde::de::Error, {
-                if let Ok(array) = <&[u8; 8]>::try_from(v) {
-                    Ok(FloatValue::F64(u64::from_le_bytes(*array)))
+                if let Ok(array) = <&[u8; 4]>::try_from(v) {
+                    Ok(FloatValue::F32(u32::from_be_bytes(*array)))
                 } else if let Ok(array) = <&[u8; 8]>::try_from(v) {
-                    Ok(FloatValue::F64(u64::from_le_bytes(*array)))
+                    Ok(FloatValue::F64(u64::from_be_bytes(*array)))
                 } else {
                     Err(E::custom("Floats may be 8 or 4 bytes"))
                 }

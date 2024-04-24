@@ -191,8 +191,7 @@ impl Client {
     {
         let bins = bins.into();
         let mut command = ReadCommand::new(&policy.base_policy, self.cluster.clone(), key, bins, policy.replica);
-        command.execute().await?;
-        Ok(command.record.unwrap())
+        command.execute().await
     }
 
     /// Read multiple record for specified batch keys in one batch call. This method allows
@@ -590,9 +589,7 @@ impl Client {
             args,
         );
 
-        command.execute().await?;
-
-        let record = command.read_command.record.unwrap();
+        let record = command.execute().await?;
 
         // User defined functions don't have to return a value.
         if record.bins.is_empty() {

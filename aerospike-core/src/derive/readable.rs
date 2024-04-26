@@ -1049,6 +1049,10 @@ impl<'l, 'm> Deserializer<'l> for CDTDecoder<'m> {
             0x00..=0x7f => visitor.visit_i8(ptype as i8),
             0xcc => visitor.visit_i8(i8::try_from(u8::from_be_bytes(self.take_bytes()?))?),
             0xd0 => visitor.visit_i8(i8::from_be_bytes(self.take_bytes()?)),
+            0xe0..=0xff => {
+                let value = (ptype - 0xe0) as i8 - 32;
+                visitor.visit_i8(value)
+            }
             _ => Err(Self::Error::invalid_type(self.as_unexpected(ptype)?, &visitor))
         }
     }
@@ -1063,6 +1067,10 @@ impl<'l, 'm> Deserializer<'l> for CDTDecoder<'m> {
             0xd0 => visitor.visit_i16(i8::from_be_bytes(self.take_bytes()?) as i16),
             0xcd => visitor.visit_i16(u16::from_be_bytes(self.take_bytes()?).try_into()?),
             0xd1 => visitor.visit_i16(i16::from_be_bytes(self.take_bytes()?)),
+            0xe0..=0xff => {
+                let value = (ptype - 0xe0) as i8 - 32;
+                visitor.visit_i16(value as i16)
+            }
             _ => Err(Self::Error::invalid_type(self.as_unexpected(ptype)?, &visitor))
         }
     }
@@ -1079,6 +1087,10 @@ impl<'l, 'm> Deserializer<'l> for CDTDecoder<'m> {
             0xd0 => visitor.visit_i32(i8::from_be_bytes(self.take_bytes()?) as i32),
             0xd1 => visitor.visit_i32(i16::from_be_bytes(self.take_bytes()?) as i32),
             0xd2 => visitor.visit_i32(i32::from_be_bytes(self.take_bytes()?)),
+            0xe0..=0xff => {
+                let value = (ptype - 0xe0) as i8 - 32;
+                visitor.visit_i32(value as i32)
+            }
             _ => Err(Self::Error::invalid_type(self.as_unexpected(ptype)?, &visitor))
         }
     }
@@ -1097,6 +1109,10 @@ impl<'l, 'm> Deserializer<'l> for CDTDecoder<'m> {
             0xd1 => visitor.visit_i64(i16::from_be_bytes(self.take_bytes()?) as i64),
             0xd2 => visitor.visit_i64(i32::from_be_bytes(self.take_bytes()?) as i64),
             0xd3 => visitor.visit_i64(i64::from_be_bytes(self.take_bytes()?)),
+            0xe0..=0xff => {
+                let value = (ptype - 0xe0) as i8 - 32;
+                visitor.visit_i64(value as i64)
+            }
             _ => Err(Self::Error::invalid_type(self.as_unexpected(ptype)?, &visitor))
         }
     }
@@ -1726,6 +1742,23 @@ mod tests {
     #[test]
     fn destream_f32_value() {
         let myval = crate::Value::from(0.0023_f32);
+        
+        let mut buffer = crate::Buffer::new(1024);
+        let myval = crate::Value::List(vec![
+            myval
+        ]);
+        
+        buffer.resize_buffer(myval.estimate_size()).unwrap();
+        myval.write_to(&mut buffer);
+
+        let as_bin = new_preparsed(20, "binname", buffer.data_buffer);
+        let deserialized = crate::Value::deserialize(as_bin.clone()).unwrap();
+        assert_eq!(deserialized, myval);
+    }
+
+    #[test]
+    fn destream_i8_value() {
+        let myval = crate::Value::from(-2);
         
         let mut buffer = crate::Buffer::new(1024);
         let myval = crate::Value::List(vec![

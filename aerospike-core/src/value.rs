@@ -23,6 +23,7 @@ use byteorder::{ByteOrder, NetworkEndian};
 
 use ripemd::digest::Digest;
 use ripemd::Ripemd160;
+use serde::de::Error;
 
 use std::vec::Vec;
 
@@ -197,7 +198,7 @@ impl fmt::Display for FloatValue {
 }
 
 /// Container for bin values stored in the Aerospike database.
-#[derive(Debug, Clone, PartialEq, Eq, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Value {
     /// Empty value.
     Nil,
@@ -226,10 +227,7 @@ pub enum Value {
     String(String),
 
     /// Byte array value.
-    Blob(
-        #[serde(with = "serde_bytes")]
-        Vec<u8>
-    ),
+    Blob(Vec<u8>),
 
     /// List data type is an ordered collection of values. Lists can contain values of any
     /// supported data type. List data order is maintained on writes and reads.
@@ -249,10 +247,118 @@ pub enum Value {
     GeoJSON(String),
 
     /// HLL value
-    HLL(
-        #[serde(with = "serde_bytes")]
-        Vec<u8>
-    ),
+    HLL(Vec<u8>),
+}
+
+impl<'l> serde::de::Deserialize<'l> for Value {
+    fn deserialize<D>(deserializer: D) -> StdResult<Self, D::Error>
+    where
+        D: serde::Deserializer<'l> {
+        struct Visitor;
+        impl<'d> serde::de::Visitor<'d> for Visitor {
+            type Value = Value;
+        
+            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+                formatter.write_str("enum")
+            }
+
+            fn visit_none<E: serde::de::Error>(self) -> StdResult<Self::Value, E> {
+                Ok(Value::Nil)
+            }
+
+            fn visit_string<E: serde::de::Error>(self, v: String) -> StdResult<Self::Value, E> {
+                Ok(Value::String(v))
+            }
+
+            fn visit_str<E: serde::de::Error>(self, v: &str) -> StdResult<Self::Value, E> {
+                Ok(Value::String(v.to_string()))
+            }
+
+            fn visit_byte_buf<E: serde::de::Error>(self, v: Vec<u8>) -> StdResult<Self::Value, E> {
+                Ok(Value::Blob(v))
+            }
+
+            fn visit_bytes<E: serde::de::Error>(self, v: &[u8]) -> StdResult<Self::Value, E> {
+                Ok(Value::Blob(v.to_vec()))
+            }
+
+            fn visit_bool<E: serde::de::Error>(self, v: bool) -> StdResult<Self::Value, E> {
+                Ok(Value::Bool(v))
+            }
+
+            fn visit_i64<E: serde::de::Error>(self, v: i64) -> StdResult<Self::Value, E> {
+                Ok(Value::Int(v))
+            }
+
+            fn visit_u64<E: serde::de::Error>(self, v: u64) -> StdResult<Self::Value, E> {
+                Ok(Value::UInt(v))
+            }
+
+            fn visit_seq<A: serde::de::SeqAccess<'d>>(self, mut seq: A) -> StdResult<Self::Value, A::Error> {
+                let mut values = Vec::with_capacity(seq.size_hint().unwrap_or_default());
+
+                while let Some(value) = seq.next_element()? {
+                    values.push(value);
+                }
+
+                Ok(Value::List(values))
+            }
+
+            fn visit_map<A: serde::de::MapAccess<'d>>(self, mut map: A) -> StdResult<Self::Value, A::Error> {
+                let mut values = HashMap::with_capacity_and_hasher(map.size_hint().unwrap_or_default(), Default::default());
+
+                while let Some((key, value)) = map.next_entry()? {
+                    values.insert(key, value);
+                }
+
+                Ok(Value::HashMap(values))
+            }
+
+
+            fn visit_enum<A: serde::de::EnumAccess<'d>>(self, data: A) -> StdResult<Self::Value, A::Error> {
+                use serde::de::VariantAccess;
+                let (key, variant_access) = data.variant::<u8>()?;
+                match ParticleType::from(key) {
+                    ParticleType::NULL => {
+                        variant_access.unit_variant()?;
+                        Ok(Value::Nil)
+                    },
+                    ParticleType::INTEGER => {
+                        Ok(Value::Int(variant_access.newtype_variant()?))
+                    },
+                    ParticleType::FLOAT =>  {
+                        Ok(Value::Float(variant_access.newtype_variant()?))
+                    },
+                    ParticleType::STRING =>  {
+                        Ok(Value::String(variant_access.newtype_variant()?))
+                    },
+                    ParticleType::BLOB =>  {
+                        Ok(Value::Blob(variant_access.newtype_variant::<serde_bytes::ByteBuf>()?.into_vec()))
+                    },
+                    ParticleType::BOOL =>  {
+                        Ok(Value::Bool(variant_access.newtype_variant()?))
+                    },
+                    ParticleType::HLL =>  {
+                        Ok(Value::HLL(variant_access.newtype_variant::<serde_bytes::ByteBuf>()?.into_vec()))
+                    },
+                    ParticleType::MAP =>  {
+                        Ok(Value::HashMap(variant_access.newtype_variant()?))
+                    },
+                    ParticleType::LIST =>  {
+                        Ok(Value::List(variant_access.newtype_variant()?))
+                    },
+                    ParticleType::LDT | ParticleType::DIGEST => {
+                        Err(Error::custom(format_args!("unknown varient: {}", key)))
+                    },
+                    ParticleType::GEOJSON =>  {
+                        Ok(Value::GeoJSON(variant_access.newtype_variant()?))
+                    },
+                }
+            }
+        }
+
+        deserializer.deserialize_enum("Value", &[], Visitor)
+    }
 }
 
 #[allow(clippy::derive_hash_xor_eq)]

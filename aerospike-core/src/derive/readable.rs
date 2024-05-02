@@ -21,6 +21,7 @@ use serde::de::MapAccess;
 use serde::de::SeqAccess;
 use serde::de::VariantAccess;
 use serde::de::Visitor;
+use serde::forward_to_deserialize_any;
 use serde::Deserialize;
 use serde::Deserializer;
 
@@ -254,207 +255,6 @@ impl<'de> serde::de::Deserializer<'de> for BinsDeserializer {
 }
 
 
-struct DeserializeStr<'a>(&'a str);
-impl<'a, 'de> serde::de::Deserializer<'de> for DeserializeStr<'a> {
-    type Error = crate::errors::Error;
-
-    fn deserialize_any<V>(self, visitor: V) -> std::prelude::v1::Result<V::Value, Self::Error>
-    where
-        V: serde::de::Visitor<'de> {
-        visitor.visit_str(self.0)
-    }
-
-    fn deserialize_bool<V>(self, visitor: V) -> std::prelude::v1::Result<V::Value, Self::Error>
-    where
-        V: serde::de::Visitor<'de> {
-        visitor.visit_str(self.0)
-    }
-
-    fn deserialize_i8<V>(self, visitor: V) -> std::prelude::v1::Result<V::Value, Self::Error>
-    where
-        V: serde::de::Visitor<'de> {
-        visitor.visit_str(self.0)
-    }
-
-    fn deserialize_i16<V>(self, visitor: V) -> std::prelude::v1::Result<V::Value, Self::Error>
-    where
-        V: serde::de::Visitor<'de> {
-        visitor.visit_str(self.0)
-    }
-
-    fn deserialize_i32<V>(self, visitor: V) -> std::prelude::v1::Result<V::Value, Self::Error>
-    where
-        V: serde::de::Visitor<'de> {
-        visitor.visit_str(self.0)
-    }
-
-    fn deserialize_i64<V>(self, visitor: V) -> std::prelude::v1::Result<V::Value, Self::Error>
-    where
-        V: serde::de::Visitor<'de> {
-        visitor.visit_str(self.0)
-    }
-
-    fn deserialize_u8<V>(self, visitor: V) -> std::prelude::v1::Result<V::Value, Self::Error>
-    where
-        V: serde::de::Visitor<'de> {
-        visitor.visit_str(self.0)
-    }
-
-    fn deserialize_u16<V>(self, visitor: V) -> std::prelude::v1::Result<V::Value, Self::Error>
-    where
-        V: serde::de::Visitor<'de> {
-        visitor.visit_str(self.0)
-    }
-
-    fn deserialize_u32<V>(self, visitor: V) -> std::prelude::v1::Result<V::Value, Self::Error>
-    where
-        V: serde::de::Visitor<'de> {
-        visitor.visit_str(self.0)
-    }
-
-    fn deserialize_u64<V>(self, visitor: V) -> std::prelude::v1::Result<V::Value, Self::Error>
-    where
-        V: serde::de::Visitor<'de> {
-        visitor.visit_str(self.0)
-    }
-
-    fn deserialize_f32<V>(self, visitor: V) -> std::prelude::v1::Result<V::Value, Self::Error>
-    where
-        V: serde::de::Visitor<'de> {
-        visitor.visit_str(self.0)
-    }
-
-    fn deserialize_f64<V>(self, visitor: V) -> std::prelude::v1::Result<V::Value, Self::Error>
-    where
-        V: serde::de::Visitor<'de> {
-        visitor.visit_str(self.0)
-    }
-
-    fn deserialize_char<V>(self, visitor: V) -> std::prelude::v1::Result<V::Value, Self::Error>
-    where
-        V: serde::de::Visitor<'de> {
-        visitor.visit_str(self.0)
-    }
-
-    fn deserialize_str<V>(self, visitor: V) -> std::prelude::v1::Result<V::Value, Self::Error>
-    where
-        V: serde::de::Visitor<'de> {
-        visitor.visit_str(self.0)
-    }
-
-    fn deserialize_string<V>(self, visitor: V) -> std::prelude::v1::Result<V::Value, Self::Error>
-    where
-        V: serde::de::Visitor<'de> {
-        visitor.visit_str(self.0)
-    }
-
-    fn deserialize_bytes<V>(self, visitor: V) -> std::prelude::v1::Result<V::Value, Self::Error>
-    where
-        V: serde::de::Visitor<'de> {
-        visitor.visit_str(self.0)
-    }
-
-    fn deserialize_byte_buf<V>(self, visitor: V) -> std::prelude::v1::Result<V::Value, Self::Error>
-    where
-        V: serde::de::Visitor<'de> {
-        visitor.visit_str(self.0)
-    }
-
-    fn deserialize_option<V>(self, visitor: V) -> std::prelude::v1::Result<V::Value, Self::Error>
-    where
-        V: serde::de::Visitor<'de> {
-        visitor.visit_str(self.0)
-    }
-
-    fn deserialize_unit<V>(self, visitor: V) -> std::prelude::v1::Result<V::Value, Self::Error>
-    where
-        V: serde::de::Visitor<'de> {
-        visitor.visit_str(self.0)
-    }
-
-    fn deserialize_unit_struct<V>(
-        self,
-        _name: &'static str,
-        visitor: V,
-    ) -> std::prelude::v1::Result<V::Value, Self::Error>
-    where
-        V: serde::de::Visitor<'de> {
-        visitor.visit_str(self.0)
-    }
-
-    fn deserialize_newtype_struct<V>(
-        self,
-        _name: &'static str,
-        visitor: V,
-    ) -> std::prelude::v1::Result<V::Value, Self::Error>
-    where
-        V: serde::de::Visitor<'de> {
-        visitor.visit_str(self.0)
-    }
-
-    fn deserialize_seq<V>(self, visitor: V) -> std::prelude::v1::Result<V::Value, Self::Error>
-    where
-        V: serde::de::Visitor<'de> {
-        visitor.visit_str(self.0)
-    }
-
-    fn deserialize_tuple<V>(self, _len: usize, visitor: V) -> std::prelude::v1::Result<V::Value, Self::Error>
-    where
-        V: serde::de::Visitor<'de> {
-        visitor.visit_str(self.0)
-    }
-
-    fn deserialize_tuple_struct<V>(
-        self,
-        _name: &'static str,
-        _len: usize,
-        visitor: V,
-    ) -> std::prelude::v1::Result<V::Value, Self::Error>
-    where
-        V: serde::de::Visitor<'de> {
-        visitor.visit_str(self.0)
-    }
-
-    fn deserialize_map<V>(self, visitor: V) -> std::prelude::v1::Result<V::Value, Self::Error>
-    where
-        V: serde::de::Visitor<'de> {
-        visitor.visit_str(self.0)
-    }
-
-    fn deserialize_struct<V>(
-        self,
-        _name: &'static str,
-        _fields: &'static [&'static str],
-        visitor: V,
-    ) -> std::prelude::v1::Result<V::Value, Self::Error>
-    where
-        V: serde::de::Visitor<'de> {
-        visitor.visit_str(self.0)
-    }
-
-    fn deserialize_enum<V>(
-        self,
-        _name: &'static str,
-        _variants: &'static [&'static str],
-        visitor: V,
-    ) -> std::prelude::v1::Result<V::Value, Self::Error>
-    where
-        V: serde::de::Visitor<'de> {
-        visitor.visit_str(self.0)
-    }
-
-    fn deserialize_identifier<V>(self, visitor: V) -> std::prelude::v1::Result<V::Value, Self::Error>
-    where
-        V: serde::de::Visitor<'de> {
-        visitor.visit_str(self.0)
-    }
-
-    fn deserialize_ignored_any<V>(self, visitor: V) -> std::prelude::v1::Result<V::Value, Self::Error>
-    where
-        V: serde::de::Visitor<'de> {
-        visitor.visit_str(self.0)
-    }
-}
 
 impl<'de> serde::de::MapAccess<'de> for BinsDeserializer {
     type Error = crate::errors::Error;
@@ -464,7 +264,7 @@ impl<'de> serde::de::MapAccess<'de> for BinsDeserializer {
         K: serde::de::DeserializeSeed<'de> {
 
         if let Some(next_key) = self.bins.front() {
-            Some(seed.deserialize(DeserializeStr(next_key.name()?))).transpose()
+            Some(seed.deserialize(serde::de::value::StrDeserializer::<crate::Error>::new(next_key.name()?))).transpose()
         } else {
             Ok(None)
         }
@@ -516,12 +316,6 @@ impl<'de> serde::de::Deserializer<'de> for PreParsedValue {
             ParticleType::DIGEST => todo!(),
             ParticleType::LDT => todo!(),
         }
-    }
-
-    fn deserialize_bool<V>(self, visitor: V) -> std::result::Result<V::Value, Self::Error>
-    where
-        V: serde::de::Visitor<'de> {
-        self.deserialize_any(visitor)
     }
 
     fn deserialize_i8<V>(self, visitor: V) -> std::result::Result<V::Value, Self::Error>
@@ -637,24 +431,6 @@ impl<'de> serde::de::Deserializer<'de> for PreParsedValue {
         }
     }
 
-    fn deserialize_char<V>(self, visitor: V) -> std::result::Result<V::Value, Self::Error>
-    where
-        V: serde::de::Visitor<'de> {
-        self.deserialize_any(visitor)
-    }
-
-    fn deserialize_str<V>(self, visitor: V) -> std::result::Result<V::Value, Self::Error>
-    where
-        V: serde::de::Visitor<'de> {
-        self.deserialize_any(visitor)
-    }
-
-    fn deserialize_string<V>(self, visitor: V) -> std::result::Result<V::Value, Self::Error>
-    where
-        V: serde::de::Visitor<'de> {
-        self.deserialize_any(visitor)
-    }
-
     fn deserialize_bytes<V>(self, visitor: V) -> std::result::Result<V::Value, Self::Error>
     where
         V: serde::de::Visitor<'de> {
@@ -687,72 +463,6 @@ impl<'de> serde::de::Deserializer<'de> for PreParsedValue {
         }
     }
 
-    fn deserialize_unit<V>(self, visitor: V) -> std::result::Result<V::Value, Self::Error>
-    where
-        V: serde::de::Visitor<'de> {
-        self.deserialize_any(visitor)
-    }
-
-    fn deserialize_unit_struct<V>(
-        self,
-        _name: &'static str,
-        visitor: V,
-    ) -> std::result::Result<V::Value, Self::Error>
-    where
-        V: serde::de::Visitor<'de> {
-        self.deserialize_any(visitor)
-    }
-
-    fn deserialize_newtype_struct<V>(
-        self,
-        _name: &'static str,
-        visitor: V,
-    ) -> std::result::Result<V::Value, Self::Error>
-    where
-        V: serde::de::Visitor<'de> {
-        self.deserialize_any(visitor)
-    }
-
-    fn deserialize_seq<V>(self, visitor: V) -> std::result::Result<V::Value, Self::Error>
-    where
-        V: serde::de::Visitor<'de> {
-        self.deserialize_any(visitor)
-    }
-
-    fn deserialize_tuple<V>(self, _len: usize, visitor: V) -> std::result::Result<V::Value, Self::Error>
-    where
-        V: serde::de::Visitor<'de> {
-        self.deserialize_any(visitor)
-    }
-
-    fn deserialize_tuple_struct<V>(
-        self,
-        _name: &'static str,
-        _len: usize,
-        visitor: V,
-    ) -> std::result::Result<V::Value, Self::Error>
-    where
-        V: serde::de::Visitor<'de> {
-        self.deserialize_any(visitor)
-    }
-
-    fn deserialize_map<V>(self, visitor: V) -> std::result::Result<V::Value, Self::Error>
-    where
-        V: serde::de::Visitor<'de> {
-        self.deserialize_any(visitor)
-    }
-
-    fn deserialize_struct<V>(
-        self,
-        _name: &'static str,
-        _fields: &'static [&'static str],
-        visitor: V,
-    ) -> std::result::Result<V::Value, Self::Error>
-    where
-        V: serde::de::Visitor<'de> {
-        self.deserialize_any(visitor)
-    }
-
     fn deserialize_enum<V>(
         self,
         _name: &'static str,
@@ -761,13 +471,7 @@ impl<'de> serde::de::Deserializer<'de> for PreParsedValue {
     ) -> std::result::Result<V::Value, Self::Error>
     where
         V: serde::de::Visitor<'de> {
-        visitor.visit_enum(EnumAdaptor{ particle_type: self.particle_type(), deserializer: self})
-    }
-
-    fn deserialize_identifier<V>(self, visitor: V) -> std::result::Result<V::Value, Self::Error>
-    where
-        V: serde::de::Visitor<'de> {
-        self.deserialize_any(visitor)
+        visitor.visit_enum(EnumAdaptor{ particle_type: self.particle_type, deserializer: self})
     }
 
     fn deserialize_ignored_any<V>(self, visitor: V) -> std::result::Result<V::Value, Self::Error>
@@ -775,10 +479,16 @@ impl<'de> serde::de::Deserializer<'de> for PreParsedValue {
         V: serde::de::Visitor<'de> {
         visitor.visit_none()
     }
+
+    forward_to_deserialize_any! {
+        bool i128 u128 char str string
+        unit unit_struct newtype_struct seq tuple
+        tuple_struct map struct identifier
+    }
 }
 
 struct EnumAdaptor<V: for<'a> Deserializer<'a, Error = crate::Error>> {
-    particle_type: ParticleType,
+    particle_type: u8,
     deserializer: V,
 }
 
@@ -791,21 +501,7 @@ impl<'de, Var: for<'a> Deserializer<'a, Error = crate::Error>> EnumAccess<'de> f
     fn variant_seed<V>(self, seed: V) -> std::prelude::v1::Result<(V::Value, Self::Variant), Self::Error>
     where
         V: serde::de::DeserializeSeed<'de> {
-        let name = match self.particle_type {
-            ParticleType::NULL => "Nil",
-            ParticleType::INTEGER => "Int",
-            ParticleType::FLOAT => "Float",
-            ParticleType::STRING => "String",
-            ParticleType::BLOB => "Blob",
-            ParticleType::DIGEST => todo!(),
-            ParticleType::BOOL => "Bool",
-            ParticleType::HLL => "HLL",
-            ParticleType::MAP => "HashMap",
-            ParticleType::LIST => "List",
-            ParticleType::LDT => todo!(),
-            ParticleType::GEOJSON => "GeoJSON",
-        };
-        let val = seed.deserialize(DeserializeStr(name))?;
+        let val = seed.deserialize(serde::de::value::U8Deserializer::<crate::Error>::new(self.particle_type))?;
         Ok((val, self))
     }
 }
@@ -814,7 +510,7 @@ impl<'de, Var: for<'a> Deserializer<'a, Error = crate::Error>> VariantAccess<'de
     type Error = crate::errors::Error;
 
     fn unit_variant(self) -> std::prelude::v1::Result<(), Self::Error> {
-        if self.particle_type == ParticleType::NULL {
+        if self.particle_type == ParticleType::NULL as u8 {
             Ok(())
         } else {
             Err(serde::de::Error::invalid_type(serde::de::Unexpected::NewtypeVariant, &"unit variant"))
@@ -957,12 +653,12 @@ impl<'m> CDTDecoder<'m> {
     }
 }
 
-impl<'l, 'm> Deserializer<'l> for CDTDecoder<'m> {
+impl<'de, 'm> Deserializer<'de> for CDTDecoder<'m> {
     type Error = crate::errors::Error;
 
     fn deserialize_any<V>(mut self, visitor: V) -> std::prelude::v1::Result<V::Value, Self::Error>
     where
-        V: serde::de::Visitor<'l> {
+        V: serde::de::Visitor<'de> {
         fn deserialize_any_buffer<'l, 'm, V>(mut deserializer: CDTDecoder<'m>, visitor: V, count: usize) -> std::prelude::v1::Result<V::Value, crate::errors::Error>
         where
             V: serde::de::Visitor<'l> {
@@ -1032,7 +728,7 @@ impl<'l, 'm> Deserializer<'l> for CDTDecoder<'m> {
 
     fn deserialize_bool<V>(mut self, visitor: V) -> std::prelude::v1::Result<V::Value, Self::Error>
     where
-        V: serde::de::Visitor<'l> {
+        V: serde::de::Visitor<'de> {
         let ptype = self.take_byte()?;
         match ptype {
             0xc2 => visitor.visit_bool(false),
@@ -1043,7 +739,7 @@ impl<'l, 'm> Deserializer<'l> for CDTDecoder<'m> {
 
     fn deserialize_i8<V>(mut self, visitor: V) -> std::prelude::v1::Result<V::Value, Self::Error>
     where
-        V: serde::de::Visitor<'l> {
+        V: serde::de::Visitor<'de> {
         let ptype = self.take_byte()?;
         match ptype {
             0x00..=0x7f => visitor.visit_i8(ptype as i8),
@@ -1059,7 +755,7 @@ impl<'l, 'm> Deserializer<'l> for CDTDecoder<'m> {
 
     fn deserialize_i16<V>(mut self, visitor: V) -> std::prelude::v1::Result<V::Value, Self::Error>
     where
-        V: serde::de::Visitor<'l> {
+        V: serde::de::Visitor<'de> {
         let ptype = self.take_byte()?;
         match ptype {
             0x00..=0x7f => visitor.visit_i16(ptype as i16),
@@ -1077,7 +773,7 @@ impl<'l, 'm> Deserializer<'l> for CDTDecoder<'m> {
 
     fn deserialize_i32<V>(mut self, visitor: V) -> std::prelude::v1::Result<V::Value, Self::Error>
     where
-        V: serde::de::Visitor<'l> {
+        V: serde::de::Visitor<'de> {
         let ptype = self.take_byte()?;
         match ptype {
             0x00..=0x7f => visitor.visit_i32(ptype as i32),
@@ -1097,7 +793,7 @@ impl<'l, 'm> Deserializer<'l> for CDTDecoder<'m> {
 
     fn deserialize_i64<V>(mut self, visitor: V) -> std::prelude::v1::Result<V::Value, Self::Error>
     where
-        V: serde::de::Visitor<'l> {
+        V: serde::de::Visitor<'de> {
         let ptype = self.take_byte()?;
         match ptype {
             0x00..=0x7f => visitor.visit_i64(ptype as i64),
@@ -1119,7 +815,7 @@ impl<'l, 'm> Deserializer<'l> for CDTDecoder<'m> {
 
     fn deserialize_u8<V>(mut self, visitor: V) -> std::prelude::v1::Result<V::Value, Self::Error>
     where
-        V: serde::de::Visitor<'l> {
+        V: serde::de::Visitor<'de> {
         let ptype = self.take_byte()?;
         match ptype {
             0x00..=0x7f => visitor.visit_u8(ptype),
@@ -1131,7 +827,7 @@ impl<'l, 'm> Deserializer<'l> for CDTDecoder<'m> {
 
     fn deserialize_u16<V>(mut self, visitor: V) -> std::prelude::v1::Result<V::Value, Self::Error>
     where
-        V: serde::de::Visitor<'l> {
+        V: serde::de::Visitor<'de> {
         let ptype = self.take_byte()?;
         match ptype {
             0x00..=0x7f => visitor.visit_i16(ptype as i16),
@@ -1145,7 +841,7 @@ impl<'l, 'm> Deserializer<'l> for CDTDecoder<'m> {
 
     fn deserialize_u32<V>(mut self, visitor: V) -> std::prelude::v1::Result<V::Value, Self::Error>
     where
-        V: serde::de::Visitor<'l> {
+        V: serde::de::Visitor<'de> {
         let ptype = self.take_byte()?;
         match ptype {
             0x00..=0x7f => visitor.visit_u64(ptype as u64),
@@ -1161,7 +857,7 @@ impl<'l, 'm> Deserializer<'l> for CDTDecoder<'m> {
 
     fn deserialize_u64<V>(mut self, visitor: V) -> std::prelude::v1::Result<V::Value, Self::Error>
     where
-        V: serde::de::Visitor<'l> {
+        V: serde::de::Visitor<'de> {
         let ptype = self.take_byte()?;
         match ptype {
             0x00..=0x7f => visitor.visit_u64(ptype as u64),
@@ -1179,7 +875,7 @@ impl<'l, 'm> Deserializer<'l> for CDTDecoder<'m> {
 
     fn deserialize_f32<V>(mut self, visitor: V) -> std::prelude::v1::Result<V::Value, Self::Error>
     where
-        V: serde::de::Visitor<'l> {
+        V: serde::de::Visitor<'de> {
         let ptype = self.take_byte()?;
         match ptype {
             0xca => visitor.visit_f32(f32::from_be_bytes(self.take_bytes()?)),
@@ -1190,7 +886,7 @@ impl<'l, 'm> Deserializer<'l> for CDTDecoder<'m> {
 
     fn deserialize_f64<V>(mut self, visitor: V) -> std::prelude::v1::Result<V::Value, Self::Error>
     where
-        V: serde::de::Visitor<'l> {
+        V: serde::de::Visitor<'de> {
         let ptype = self.take_byte()?;
         match ptype {
             0xca => visitor.visit_f64(f32::from_be_bytes(self.take_bytes()?).into()),
@@ -1201,13 +897,13 @@ impl<'l, 'm> Deserializer<'l> for CDTDecoder<'m> {
 
     fn deserialize_char<V>(self, visitor: V) -> std::prelude::v1::Result<V::Value, Self::Error>
     where
-        V: serde::de::Visitor<'l> {
+        V: serde::de::Visitor<'de> {
         self.deserialize_any(visitor)
     }
 
     fn deserialize_str<V>(mut self, visitor: V) -> std::prelude::v1::Result<V::Value, Self::Error>
     where
-        V: serde::de::Visitor<'l> {
+        V: serde::de::Visitor<'de> {
         fn deserialize_any_buffer<'l, 'm, V>(mut deserializer: CDTDecoder<'m>, visitor: V, count: usize) -> std::prelude::v1::Result<V::Value, crate::errors::Error>
         where
             V: serde::de::Visitor<'l> {
@@ -1241,14 +937,14 @@ impl<'l, 'm> Deserializer<'l> for CDTDecoder<'m> {
 
     fn deserialize_string<V>(self, visitor: V) -> std::prelude::v1::Result<V::Value, Self::Error>
     where
-        V: serde::de::Visitor<'l> {
+        V: serde::de::Visitor<'de> {
        self.deserialize_str(visitor)
     }
 
     // this is a very permissive handler that allows 
     fn deserialize_bytes<V>(mut self, visitor: V) -> std::prelude::v1::Result<V::Value, Self::Error>
     where
-        V: serde::de::Visitor<'l> {
+        V: serde::de::Visitor<'de> {
         fn deserialize_any_buffer<'l, 'm, V>(mut deserializer: CDTDecoder<'m>, visitor: V, count: usize) -> std::prelude::v1::Result<V::Value, crate::errors::Error>
         where
             V: serde::de::Visitor<'l> {
@@ -1293,13 +989,13 @@ impl<'l, 'm> Deserializer<'l> for CDTDecoder<'m> {
 
     fn deserialize_byte_buf<V>(self, visitor: V) -> std::prelude::v1::Result<V::Value, Self::Error>
     where
-        V: serde::de::Visitor<'l> {
+        V: serde::de::Visitor<'de> {
         self.deserialize_bytes(visitor)
     }
 
     fn deserialize_option<V>(self, visitor: V) -> std::prelude::v1::Result<V::Value, Self::Error>
     where
-        V: serde::de::Visitor<'l> {
+        V: serde::de::Visitor<'de> {
         if self.0[*self.1] == 0xc0 {
             *self.1 += 1;
             visitor.visit_none()
@@ -1308,35 +1004,9 @@ impl<'l, 'm> Deserializer<'l> for CDTDecoder<'m> {
         }
     }
 
-    fn deserialize_unit<V>(self, visitor: V) -> std::prelude::v1::Result<V::Value, Self::Error>
-    where
-        V: serde::de::Visitor<'l> {
-        self.deserialize_any(visitor)
-    }
-
-    fn deserialize_unit_struct<V>(
-        self,
-        _name: &'static str,
-        visitor: V,
-    ) -> std::prelude::v1::Result<V::Value, Self::Error>
-    where
-        V: serde::de::Visitor<'l> {
-        self.deserialize_any(visitor)
-    }
-
-    fn deserialize_newtype_struct<V>(
-        self,
-        _name: &'static str,
-        visitor: V,
-    ) -> std::prelude::v1::Result<V::Value, Self::Error>
-    where
-        V: serde::de::Visitor<'l> {
-        self.deserialize_any(visitor)
-    }
-
     fn deserialize_seq<V>(mut self, visitor: V) -> std::prelude::v1::Result<V::Value, Self::Error>
     where
-        V: serde::de::Visitor<'l> {
+        V: serde::de::Visitor<'de> {
         let ptype = self.take_byte()?;
         match ptype {
             0x90..=0x9f => visitor.visit_seq(CDTListOrMap::new((ptype & 0x0f) as usize, self.0, self.1, false)),
@@ -1352,26 +1022,9 @@ impl<'l, 'm> Deserializer<'l> for CDTDecoder<'m> {
         }
     }
 
-    fn deserialize_tuple<V>(self, _len: usize, visitor: V) -> std::prelude::v1::Result<V::Value, Self::Error>
-    where
-        V: serde::de::Visitor<'l> {
-        self.deserialize_any(visitor)
-    }
-
-    fn deserialize_tuple_struct<V>(
-        self,
-        _name: &'static str,
-        _len: usize,
-        visitor: V,
-    ) -> std::prelude::v1::Result<V::Value, Self::Error>
-    where
-        V: serde::de::Visitor<'l> {
-        self.deserialize_any(visitor)
-    }
-
     fn deserialize_map<V>(mut self, visitor: V) -> std::prelude::v1::Result<V::Value, Self::Error>
     where
-        V: serde::de::Visitor<'l> {
+        V: serde::de::Visitor<'de> {
         let ptype = self.take_byte()?;
         match ptype {
             0x80..=0x8f => visitor.visit_map(CDTListOrMap::new((ptype & 0x0f) as usize, self.0, self.1, true)),
@@ -1394,46 +1047,95 @@ impl<'l, 'm> Deserializer<'l> for CDTDecoder<'m> {
         visitor: V,
     ) -> std::prelude::v1::Result<V::Value, Self::Error>
     where
-        V: serde::de::Visitor<'l> {
+        V: serde::de::Visitor<'de> {
         self.deserialize_map(visitor)
     }
 
+    // Specifically designed for parsing Value. Will take a shortcut to some internal types
     fn deserialize_enum<V>(
-        self,
+        mut self,
         _name: &'static str,
         _variants: &'static [&'static str],
         visitor: V,
     ) -> std::prelude::v1::Result<V::Value, Self::Error>
     where
-        V: serde::de::Visitor<'l> {
+        V: serde::de::Visitor<'de> {
+        fn deserialize_any_buffer<'l, 'm, V: serde::de::Visitor<'l>>(mut deserializer: CDTDecoder<'m>, visitor: V, count: usize) -> std::prelude::v1::Result<V::Value, crate::errors::Error> {
+            let particle_type = deserializer.take_byte()?;
+            let body = deserializer.take_nbyte(count - 1)?;
+            visitor.visit_enum(EnumAdaptor{ particle_type, deserializer: BytesOrStrDeserializer(body) })
+        }
 
-        let ptype = self.0[*self.1];
-        let particle_type = match ptype {
-            0x00..=0x7f | 0xcc | 0xcd | 0xce | 0xcf | 0xd0 | 0xd1 | 0xd2 | 0xd3 | 0xe0..=0xff => ParticleType::INTEGER,
-            0x80..=0x8f | 0xde | 0xdf => ParticleType::MAP,
-            0x90..=0x9f | 0xdc | 0xdd => ParticleType::LIST,
-            0xc0 => ParticleType::NULL,
-            0xc2 | 0xc3 => ParticleType::BOOL,
-            // In blobs, the particle type is hiding just after the length
-            0xa0..=0xbf => ParticleType::from(self.0[*self.1 + 1]),
-            0xc4 | 0xd9 => ParticleType::from(self.0[*self.1 + 2]),
-            0xc5 | 0xda => ParticleType::from(self.0[*self.1 + 3]),
-            0xc6 | 0xdb => ParticleType::from(self.0[*self.1 + 5]),
-            0xca | 0xcb => ParticleType::FLOAT,
-            _ => ParticleType::NULL
-        };
-        visitor.visit_enum(EnumAdaptor{particle_type, deserializer: self})
+        let ptype = self.take_byte()?;
+        match ptype {
+            0x00..=0x7f => visitor.visit_u8(ptype as u8),
+            0x80..=0x8f => visitor.visit_map(CDTListOrMap::new((ptype & 0x0f) as usize, self.0, self.1, true)),
+            0x90..=0x9f => visitor.visit_seq(CDTListOrMap::new((ptype & 0x0f) as usize, self.0, self.1, false)),
+            0xa0..=0xbf => deserialize_any_buffer(self, visitor, (ptype & 0x1f) as usize),
+            0xc0 => visitor.visit_none(),
+            0xc2 => visitor.visit_bool(false),
+            0xc3 => visitor.visit_bool(true),
+            0xc4 | 0xd9 => {
+                let count = u8::from_be_bytes(self.take_bytes()?);
+                deserialize_any_buffer(self, visitor, count as usize)
+            }
+            0xc5 | 0xda => {
+                let count = u16::from_be_bytes(self.take_bytes()?);
+                deserialize_any_buffer(self, visitor, count as usize)
+            }
+            0xc6 | 0xdb => {
+                let count = u32::from_be_bytes(self.take_bytes()?);
+                deserialize_any_buffer(self, visitor, count as usize)
+            }
+            0xca => {
+                let body = self.take_bytes::<4>()?;
+                visitor.visit_enum(EnumAdaptor{ particle_type: ParticleType::FLOAT as u8, deserializer: BytesOrStrDeserializer(&body) })
+            }
+            0xcb => {
+                let body = self.take_bytes::<8>()?;
+                visitor.visit_enum(EnumAdaptor{ particle_type: ParticleType::FLOAT as u8, deserializer: BytesOrStrDeserializer(&body) })
+            }
+            0xcc => visitor.visit_u8(u8::from_be_bytes(self.take_bytes()?)),
+            0xcd => visitor.visit_u16(u16::from_be_bytes(self.take_bytes()?)),
+            0xce => visitor.visit_u32(u32::from_be_bytes(self.take_bytes()?)),
+            0xcf => visitor.visit_u64(u64::from_be_bytes(self.take_bytes()?)),
+            0xd0 => visitor.visit_i8(i8::from_be_bytes(self.take_bytes()?)),
+            0xd1 => visitor.visit_i16(i16::from_be_bytes(self.take_bytes()?)),
+            0xd2 => visitor.visit_i32(i32::from_be_bytes(self.take_bytes()?)),
+            0xd3 => visitor.visit_i64(i64::from_be_bytes(self.take_bytes()?)),
+            0xdc => {
+                let count = u16::from_be_bytes(self.take_bytes()?) as usize;
+                visitor.visit_seq(CDTListOrMap::new(count, self.0, self.1, false))
+            }
+            0xdd => {
+                let count = u32::from_be_bytes(self.take_bytes()?) as usize;
+                visitor.visit_seq(CDTListOrMap::new(count, self.0, self.1, false))
+            }
+            0xde => {
+                let count = u16::from_be_bytes(self.take_bytes()?) as usize;
+                visitor.visit_map(CDTListOrMap::new(count, self.0, self.1, true))
+            }
+            0xdf => {
+                let count = u32::from_be_bytes(self.take_bytes()?) as usize;
+                visitor.visit_map(CDTListOrMap::new(count, self.0, self.1, true))
+            }
+            0xe0..=0xff => {
+                let value = (ptype - 0xe0) as i8 - 32;
+                visitor.visit_i8(value)
+            }
+            _ => todo!()
+        }
     }
 
     fn deserialize_identifier<V>(self, visitor: V) -> std::prelude::v1::Result<V::Value, Self::Error>
     where
-        V: serde::de::Visitor<'l> {
+        V: serde::de::Visitor<'de> {
         self.deserialize_str(visitor)
     }
 
     fn deserialize_ignored_any<V>(mut self, visitor: V) -> std::prelude::v1::Result<V::Value, Self::Error>
     where
-        V: serde::de::Visitor<'l> {
+        V: serde::de::Visitor<'de> {
         fn ignore_values<'l, 'm>(deserializer: CDTDecoder<'m>, entries: usize) {
             struct IgnoreVisitor;
             impl<'l> Visitor<'l> for IgnoreVisitor {
@@ -1505,6 +1207,10 @@ impl<'l, 'm> Deserializer<'l> for CDTDecoder<'m> {
             _ => ()
         }
         visitor.visit_none()
+    }
+
+    forward_to_deserialize_any! {
+        unit unit_struct newtype_struct tuple tuple_struct
     }
 }
 
@@ -1599,6 +1305,40 @@ impl PreParsedValue {
 
     fn into_string(self) -> Result<String> {
         Ok(std::string::String::from_utf8(self.particle)?)
+    }
+}
+
+/// A deserializer holding a `&[u8]`.
+pub struct BytesOrStrDeserializer<'a>(&'a [u8]);
+
+impl<'de, 'a> Deserializer<'de> for BytesOrStrDeserializer<'a> {
+    type Error = Error;
+
+    fn deserialize_any<V>(self, visitor: V) -> Result<V::Value>
+    where
+        V: Visitor<'de>,
+    {
+        visitor.visit_bytes(self.0)
+    }
+
+    fn deserialize_str<V>(self, visitor: V) -> Result<V::Value>
+    where
+        V: Visitor<'de>,
+    {
+        visitor.visit_str(std::str::from_utf8(self.0)?)
+    }
+
+    fn deserialize_string<V>(self, visitor: V) -> std::prelude::v1::Result<V::Value, Self::Error>
+        where
+            V: Visitor<'de> {
+        self.deserialize_str(visitor)
+    }
+    
+
+    forward_to_deserialize_any! {
+        bool i8 i16 i32 i64 i128 u8 u16 u32 u64 u128 f32 f64 char
+        bytes byte_buf option unit unit_struct newtype_struct seq tuple
+        tuple_struct map struct enum identifier ignored_any
     }
 }
 
@@ -1698,7 +1438,7 @@ mod tests {
 
         let mut buffer = crate::Buffer::new(1024);
         let myval = crate::Value::List(vec![
-            crate::Value::Int(2),
+            crate::Value::UInt(2),
             crate::Value::String("Hello world".to_string()),
         ]);
         
@@ -1708,7 +1448,7 @@ mod tests {
         let as_bin = new_preparsed(20, "binname", buffer.data_buffer);
         let deserialized = crate::Value::deserialize(as_bin.clone()).unwrap();
         assert_eq!(deserialized, crate::Value::List(vec![
-            crate::Value::Int(2),
+            crate::Value::UInt(2),
             crate::Value::String("Hello world".to_string()),
         ]));
     }

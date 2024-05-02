@@ -16,12 +16,9 @@
 #[cfg(feature = "serialization")]
 use serde::Serialize;
 
-use std::collections::HashMap;
-use std::fmt;
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::{collections::HashMap, time::{Duration, SystemTime, UNIX_EPOCH}};
 
 use crate::Key;
-use crate::Value;
 
 lazy_static! {
   // Fri Jan  1 00:00:00 UTC 2010
@@ -31,13 +28,13 @@ lazy_static! {
 /// Container object for a database record.
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serialization", derive(Serialize))]
-pub struct Record {
+pub struct Record<T: serde::de::DeserializeOwned = HashMap<String, crate::Value>> {
     /// Record key. When reading a record from the database, the key is not set in the returned
     /// Record struct.
     pub key: Option<Key>,
 
     /// Map of named record bins.
-    pub bins: HashMap<String, Value>,
+    pub bins: T,
 
     /// Record modification count.
     pub generation: u32,
@@ -46,15 +43,10 @@ pub struct Record {
     expiration: u32,
 }
 
-impl Record {
+impl<T: serde::de::DeserializeOwned> Record<T> {
     /// Construct a new Record. For internal use only.
     #[doc(hidden)]
-    pub const fn new(
-        key: Option<Key>,
-        bins: HashMap<String, Value>,
-        generation: u32,
-        expiration: u32,
-    ) -> Self {
+    pub const fn new(key: Option<Key>, bins: T, generation: u32, expiration: u32) -> Self {
         Record {
             key,
             bins,
@@ -81,25 +73,6 @@ impl Record {
     }
 }
 
-impl fmt::Display for Record {
-    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        write!(f, "key: {:?}", self.key)?;
-        write!(f, ", bins: {{")?;
-        for (i, (k, v)) in self.bins.iter().enumerate() {
-            if i > 0 {
-                write!(f, ", ")?;
-            }
-            write!(f, "{}: {}", k, v)?;
-        }
-        write!(f, "}}, generation: {}", self.generation)?;
-        write!(f, ", ttl: ")?;
-        match self.time_to_live() {
-            None => "none".fmt(f),
-            Some(duration) => duration.as_secs().fmt(f),
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::{Record, CITRUSLEAF_EPOCH};
@@ -113,7 +86,7 @@ mod tests {
             .duration_since(*CITRUSLEAF_EPOCH)
             .unwrap()
             .as_secs();
-        let record = Record::new(None, HashMap::new(), 0, secs_since_epoch as u32);
+        let record = Record::<HashMap<String, crate::Value>>::new(None, HashMap::new(), 0, secs_since_epoch as u32);
         let ttl = record.time_to_live();
         assert!(ttl.is_some());
         assert!(1000 - ttl.unwrap().as_secs() <= 1);
@@ -121,13 +94,13 @@ mod tests {
 
     #[test]
     fn ttl_expiration_past() {
-        let record = Record::new(None, HashMap::new(), 0, 0x0d00_d21c);
+        let record = Record::<HashMap<String, crate::Value>>::new(None, HashMap::new(), 0, 0x0d00_d21c);
         assert_eq!(record.time_to_live(), Some(Duration::new(1u64, 0)));
     }
 
     #[test]
     fn ttl_never_expires() {
-        let record = Record::new(None, HashMap::new(), 0, 0);
+        let record = Record::<HashMap<String, crate::Value>>::new(None, HashMap::new(), 0, 0);
         assert_eq!(record.time_to_live(), None);
     }
 }

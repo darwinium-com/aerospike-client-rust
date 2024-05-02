@@ -13,6 +13,7 @@
 // License for the specific language governing permissions and limitations under
 // the License.
 
+use std::collections::HashMap;
 use std::path::Path;
 use std::str;
 use std::sync::Arc;
@@ -20,19 +21,19 @@ use std::vec::Vec;
 
 use crate::batch::BatchExecutor;
 use crate::cluster::{Cluster, Node};
-use crate::commands::operate_command::OperateRecord;
 use crate::commands::{
     DeleteCommand, ExecuteUDFCommand, ExistsCommand, OperateCommand, QueryCommand, ReadCommand,
     ScanCommand, TouchCommand, WriteCommand,
 };
+use crate::derive::writable::WritableBins;
 use crate::errors::{ErrorKind, Result, ResultExt};
 use crate::net::ToHosts;
 use crate::operations::{Operation, OperationType};
 use crate::policy::{BatchPolicy, ClientPolicy, QueryPolicy, ReadPolicy, ScanPolicy, WritePolicy};
 use crate::task::{IndexTask, RegisterTask};
 use crate::{
-    BatchRead, Bin, Bins, CollectionIndexType, IndexType, Key, Record, Recordset, ResultCode,
-    Statement, UDFLang, Value,
+    BatchRead, Bins, CollectionIndexType, IndexType, Key, Record, Recordset, ResultCode, Statement,
+    UDFLang, Value,
 };
 use aerospike_rt::fs::File;
 #[cfg(all(any(feature = "rt-tokio"), not(feature = "rt-async-std")))]
@@ -179,14 +180,18 @@ impl Client {
     ///
     /// # Panics
     /// Panics if the return is invalid
-    pub async fn get<T>(&self, policy: &ReadPolicy, key: &Key, bins: T) -> Result<Record>
+    pub async fn get<S: serde::de::DeserializeOwned + Send, T>(
+        &self,
+        policy: &ReadPolicy,
+        key: &Key,
+        bins: T,
+    ) -> Result<Record<S>>
     where
         T: Into<Bins> + Send + Sync + 'static,
     {
         let bins = bins.into();
         let mut command = ReadCommand::new(&policy.base_policy, self.cluster.clone(), key, bins, policy.replica);
-        command.execute().await?;
-        Ok(command.record.unwrap())
+        command.execute().await
     }
 
     /// Read multiple record for specified batch keys in one batch call. This method allows
@@ -223,11 +228,11 @@ impl Client {
     ///         => println!("Error executing batch request: {}", err),
     /// }
     /// ```
-    pub async fn batch_get(
+    pub async fn batch_get<T: serde::de::DeserializeOwned + Send + 'static>(
         &self,
         policy: &BatchPolicy,
-        batch_reads: Vec<BatchRead>,
-    ) -> Result<Vec<BatchRead>> {
+        batch_reads: Vec<BatchRead<T>>,
+    ) -> Result<Vec<BatchRead<T>>> {
         let executor = BatchExecutor::new(self.cluster.clone());
         executor.execute_batch_read(policy, batch_reads).await
     }
@@ -268,11 +273,11 @@ impl Client {
     ///     Err(err) => println!("Error writing record: {}", err),
     /// }
     /// ```
-    pub async fn put<'a, 'b>(
+    pub async fn put<T: WritableBins>(
         &self,
-        policy: &'a WritePolicy,
-        key: &'a Key,
-        bins: &'a [Bin<'b>],
+        policy: &WritePolicy,
+        key: &Key,
+        bins: &T,
     ) -> Result<()> {
         let mut command = WriteCommand::new(
             policy,
@@ -306,11 +311,11 @@ impl Client {
     ///     Err(err) => println!("Error writing record: {}", err),
     /// }
     /// ```
-    pub async fn add<'a, 'b>(
+    pub async fn add<T: WritableBins>(
         &self,
-        policy: &'a WritePolicy,
-        key: &'a Key,
-        bins: &'a [Bin<'b>],
+        policy: &WritePolicy,
+        key: &Key,
+        bins: &T,
     ) -> Result<()> {
         let mut command =
             WriteCommand::new(policy, self.cluster.clone(), key, bins, OperationType::Incr);
@@ -320,11 +325,11 @@ impl Client {
     /// Append bin string values to existing record bin values. The policy specifies the
     /// transaction timeout, record expiration and how the transaction is handled when the record
     /// already exists. This call only works for string values.
-    pub async fn append<'a, 'b>(
+    pub async fn append<T: WritableBins>(
         &self,
-        policy: &'a WritePolicy,
-        key: &'a Key,
-        bins: &'a [Bin<'b>],
+        policy: &WritePolicy,
+        key: &Key,
+        bins: &T,
     ) -> Result<()> {
         let mut command = WriteCommand::new(
             policy,
@@ -339,11 +344,11 @@ impl Client {
     /// Prepend bin string values to existing record bin values. The policy specifies the
     /// transaction timeout, record expiration and how the transaction is handled when the record
     /// already exists. This call only works for string values.
-    pub async fn prepend<'a, 'b>(
+    pub async fn prepend<T: WritableBins>(
         &self,
-        policy: &'a WritePolicy,
-        key: &'a Key,
-        bins: &'a [Bin<'b>],
+        policy: &WritePolicy,
+        key: &Key,
+        bins: &T,
     ) -> Result<()> {
         let mut command = WriteCommand::new(
             policy,
@@ -441,15 +446,14 @@ impl Client {
     /// ```
     /// # Panics
     ///  Panics if the return is invalid
-    pub async fn operate(
+    pub async fn operate<T: serde::de::DeserializeOwned + Send>(
         &self,
         policy: &WritePolicy,
         key: &Key,
         ops: &[Operation<'_>],
-    ) -> Result<OperateRecord> {
+    ) -> Result<Record<T>> {
         let mut command = OperateCommand::new(policy, self.cluster.clone(), key, ops);
-        command.execute().await?;
-        Ok(command.record)
+        command.execute().await
     }
 
     /// Register a package containing user-defined functions (UDF) with the cluster. This
@@ -576,7 +580,7 @@ impl Client {
         function_name: &str,
         args: Option<&[Value]>,
     ) -> Result<Option<Value>> {
-        let mut command = ExecuteUDFCommand::new(
+        let mut command: ExecuteUDFCommand<HashMap<String, Value>> = ExecuteUDFCommand::new(
             policy,
             self.cluster.clone(),
             key,
@@ -585,9 +589,7 @@ impl Client {
             args,
         );
 
-        command.execute().await?;
-
-        let record = command.read_command.record.unwrap();
+        let record = command.execute().await?;
 
         // User defined functions don't have to return a value.
         if record.bins.is_empty() {
@@ -636,13 +638,13 @@ impl Client {
     ///
     /// # Panics
     /// Panics if the async block fails
-    pub async fn scan<T>(
+    pub async fn scan<S: serde::de::DeserializeOwned + 'static + Send, T>(
         &self,
         policy: &ScanPolicy,
         namespace: &str,
         set_name: &str,
         bins: T,
-    ) -> Result<Arc<Recordset>>
+    ) -> Result<Arc<Recordset<S>>>
     where
         T: Into<Bins> + Send + Sync + 'static,
     {
@@ -658,7 +660,7 @@ impl Client {
             let set_name = set_name.to_owned();
             let bins = bins.clone();
 
-            aerospike_rt::spawn(async move {
+            let _ = aerospike_rt::spawn(async move {
                 let mut command = ScanCommand::new(
                     &policy, node, &namespace, &set_name, bins, recordset, partitions,
                 );
@@ -677,14 +679,14 @@ impl Client {
     ///
     /// # Panics
     /// panics if the async block fails
-    pub async fn scan_node<T>(
+    pub async fn scan_node<S: serde::de::DeserializeOwned + 'static + Send, T>(
         &self,
         policy: &ScanPolicy,
         node: Arc<Node>,
         namespace: &str,
         set_name: &str,
         bins: T,
-    ) -> Result<Arc<Recordset>>
+    ) -> Result<Arc<Recordset<S>>>
     where
         T: Into<Bins> + Send + Sync + 'static,
     {
@@ -696,7 +698,7 @@ impl Client {
         let namespace = namespace.to_owned();
         let set_name = set_name.to_owned();
 
-        aerospike_rt::spawn(async move {
+        let _ = aerospike_rt::spawn(async move {
             let mut command = ScanCommand::new(
                 &policy,
                 node,
@@ -738,11 +740,11 @@ impl Client {
     ///
     /// # Panics
     /// Panics if the async block fails
-    pub async fn query(
+    pub async fn query<T: serde::de::DeserializeOwned + 'static + Send>(
         &self,
         policy: &QueryPolicy,
         statement: Statement,
-    ) -> Result<Arc<Recordset>> {
+    ) -> Result<Arc<Recordset<T>>> {
         statement.validate()?;
         let statement = Arc::new(statement);
 
@@ -756,7 +758,7 @@ impl Client {
             let t_recordset = recordset.clone();
             let policy = policy.clone();
             let statement = statement.clone();
-            aerospike_rt::spawn(async move {
+            let _ = aerospike_rt::spawn(async move {
                 let mut command =
                     QueryCommand::new(&policy, node, statement, t_recordset, partitions);
                 command.execute().await.unwrap();
@@ -772,12 +774,12 @@ impl Client {
     ///
     /// # Panics
     /// Panics when the async block fails
-    pub async fn query_node(
+    pub async fn query_node<T: serde::de::DeserializeOwned + 'static + Send>(
         &self,
         policy: &QueryPolicy,
         node: Arc<Node>,
         statement: Statement,
-    ) -> Result<Arc<Recordset>> {
+    ) -> Result<Arc<Recordset<T>>> {
         statement.validate()?;
 
         let recordset = Arc::new(Recordset::new(policy.record_queue_size, 1));
@@ -788,7 +790,7 @@ impl Client {
             .cluster
             .node_partitions(node.as_ref(), &statement.namespace);
 
-        aerospike_rt::spawn(async move {
+        let _ = aerospike_rt::spawn(async move {
             let mut command = QueryCommand::new(&policy, node, statement, t_recordset, partitions);
             command.execute().await.unwrap();
         })

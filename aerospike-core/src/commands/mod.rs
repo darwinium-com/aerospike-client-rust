@@ -62,9 +62,10 @@ pub trait Command {
         conn: &mut Connection,
         timeout: Option<Duration>,
     ) -> Result<()>;
+    type Output;
     fn prepare_buffer(&mut self, conn: &mut Connection) -> Result<()>;
     fn get_node(&mut self) -> Result<Arc<Node>>;
-    async fn parse_result(&mut self, conn: &mut Connection) -> Result<()>;
+    async fn parse_result(&mut self, conn: &mut Connection) -> Result<Self::Output>;
     async fn write_buffer(&mut self, conn: &mut Connection) -> Result<()>;
 }
 

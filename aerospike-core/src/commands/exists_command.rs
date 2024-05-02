@@ -44,6 +44,7 @@ impl<'a> ExistsCommand<'a> {
 
 #[async_trait::async_trait]
 impl<'a> Command for ExistsCommand<'a> {
+    type Output = ();
     async fn write_timeout(
         &mut self,
         conn: &mut Connection,

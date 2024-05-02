@@ -14,6 +14,7 @@
 // the License.
 
 use std::collections::HashMap;
+use std::convert::TryFrom;
 use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::result::Result as StdResult;
@@ -22,13 +23,14 @@ use byteorder::{ByteOrder, NetworkEndian};
 
 use ripemd::digest::Digest;
 use ripemd::Ripemd160;
+use serde::de::Error;
 
 use std::vec::Vec;
 
 use crate::commands::buffer::Buffer;
 use crate::commands::ParticleType;
 use crate::errors::Result;
-use crate::msgpack::{decoder, encoder};
+use crate::msgpack::encoder;
 
 #[cfg(feature = "serialization")]
 use serde::ser::{SerializeMap, SerializeSeq};
@@ -42,6 +44,60 @@ pub enum FloatValue {
     F32(u32),
     /// Container for double precision float values.
     F64(u64),
+}
+
+impl<'l> serde::de::Deserialize<'l> for FloatValue {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'l> {
+        struct MyVistor;
+
+        impl<'l> serde::de::Visitor<'l> for MyVistor {
+            type Value = FloatValue;
+        
+            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+                write!(formatter, "f32, f64 or byte buffer")
+            }
+
+            fn visit_f64<E>(self, v: f64) -> StdResult<Self::Value, E>
+                where
+                    E: serde::de::Error, {
+                Ok(FloatValue::F64(v.to_bits()))
+            }
+
+            fn visit_f32<E>(self, v: f32) -> StdResult<Self::Value, E>
+                where
+                    E: serde::de::Error, {
+                Ok(FloatValue::F32(v.to_bits()))
+            }
+
+            fn visit_u64<E>(self, v: u64) -> StdResult<Self::Value, E>
+                where
+                    E: serde::de::Error, {
+                Ok(FloatValue::F64(v))
+            }
+
+            fn visit_u32<E>(self, v: u32) -> StdResult<Self::Value, E>
+                where
+                    E: serde::de::Error, {
+                Ok(FloatValue::F32(v))
+            }
+
+            fn visit_bytes<E>(self, v: &[u8]) -> StdResult<Self::Value, E>
+                where
+                    E: serde::de::Error, {
+                if let Ok(array) = <&[u8; 4]>::try_from(v) {
+                    Ok(FloatValue::F32(u32::from_be_bytes(*array)))
+                } else if let Ok(array) = <&[u8; 8]>::try_from(v) {
+                    Ok(FloatValue::F64(u64::from_be_bytes(*array)))
+                } else {
+                    Err(E::custom("Floats may be 8 or 4 bytes"))
+                }
+            }
+        }
+
+        deserializer.deserialize_bytes(MyVistor)
+    }
 }
 
 impl From<FloatValue> for f64 {
@@ -194,6 +250,117 @@ pub enum Value {
     HLL(Vec<u8>),
 }
 
+impl<'l> serde::de::Deserialize<'l> for Value {
+    fn deserialize<D>(deserializer: D) -> StdResult<Self, D::Error>
+    where
+        D: serde::Deserializer<'l> {
+        struct Visitor;
+        impl<'d> serde::de::Visitor<'d> for Visitor {
+            type Value = Value;
+        
+            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+                formatter.write_str("enum")
+            }
+
+            fn visit_none<E: serde::de::Error>(self) -> StdResult<Self::Value, E> {
+                Ok(Value::Nil)
+            }
+
+            fn visit_string<E: serde::de::Error>(self, v: String) -> StdResult<Self::Value, E> {
+                Ok(Value::String(v))
+            }
+
+            fn visit_str<E: serde::de::Error>(self, v: &str) -> StdResult<Self::Value, E> {
+                Ok(Value::String(v.to_string()))
+            }
+
+            fn visit_byte_buf<E: serde::de::Error>(self, v: Vec<u8>) -> StdResult<Self::Value, E> {
+                Ok(Value::Blob(v))
+            }
+
+            fn visit_bytes<E: serde::de::Error>(self, v: &[u8]) -> StdResult<Self::Value, E> {
+                Ok(Value::Blob(v.to_vec()))
+            }
+
+            fn visit_bool<E: serde::de::Error>(self, v: bool) -> StdResult<Self::Value, E> {
+                Ok(Value::Bool(v))
+            }
+
+            fn visit_i64<E: serde::de::Error>(self, v: i64) -> StdResult<Self::Value, E> {
+                Ok(Value::Int(v))
+            }
+
+            fn visit_u64<E: serde::de::Error>(self, v: u64) -> StdResult<Self::Value, E> {
+                Ok(Value::UInt(v))
+            }
+
+            fn visit_seq<A: serde::de::SeqAccess<'d>>(self, mut seq: A) -> StdResult<Self::Value, A::Error> {
+                let mut values = Vec::with_capacity(seq.size_hint().unwrap_or_default());
+
+                while let Some(value) = seq.next_element()? {
+                    values.push(value);
+                }
+
+                Ok(Value::List(values))
+            }
+
+            fn visit_map<A: serde::de::MapAccess<'d>>(self, mut map: A) -> StdResult<Self::Value, A::Error> {
+                let mut values = HashMap::with_capacity_and_hasher(map.size_hint().unwrap_or_default(), Default::default());
+
+                while let Some((key, value)) = map.next_entry()? {
+                    values.insert(key, value);
+                }
+
+                Ok(Value::HashMap(values))
+            }
+
+
+            fn visit_enum<A: serde::de::EnumAccess<'d>>(self, data: A) -> StdResult<Self::Value, A::Error> {
+                use serde::de::VariantAccess;
+                let (key, variant_access) = data.variant::<u8>()?;
+                match ParticleType::from(key) {
+                    ParticleType::NULL => {
+                        variant_access.unit_variant()?;
+                        Ok(Value::Nil)
+                    },
+                    ParticleType::INTEGER => {
+                        Ok(Value::Int(variant_access.newtype_variant()?))
+                    },
+                    ParticleType::FLOAT =>  {
+                        Ok(Value::Float(variant_access.newtype_variant()?))
+                    },
+                    ParticleType::STRING =>  {
+                        Ok(Value::String(variant_access.newtype_variant()?))
+                    },
+                    ParticleType::BLOB =>  {
+                        Ok(Value::Blob(variant_access.newtype_variant::<serde_bytes::ByteBuf>()?.into_vec()))
+                    },
+                    ParticleType::BOOL =>  {
+                        Ok(Value::Bool(variant_access.newtype_variant()?))
+                    },
+                    ParticleType::HLL =>  {
+                        Ok(Value::HLL(variant_access.newtype_variant::<serde_bytes::ByteBuf>()?.into_vec()))
+                    },
+                    ParticleType::MAP =>  {
+                        Ok(Value::HashMap(variant_access.newtype_variant()?))
+                    },
+                    ParticleType::LIST =>  {
+                        Ok(Value::List(variant_access.newtype_variant()?))
+                    },
+                    ParticleType::LDT | ParticleType::DIGEST => {
+                        Err(Error::custom(format_args!("unknown varient: {}", key)))
+                    },
+                    ParticleType::GEOJSON =>  {
+                        Ok(Value::GeoJSON(variant_access.newtype_variant()?))
+                    },
+                }
+            }
+        }
+
+        deserializer.deserialize_enum("Value", &[], Visitor)
+    }
+}
+
 #[allow(clippy::derive_hash_xor_eq)]
 impl Hash for Value {
     fn hash<H: Hasher>(&self, state: &mut H) {
@@ -227,7 +394,7 @@ impl Value {
     pub fn particle_type(&self) -> ParticleType {
         match *self {
             Value::Nil => ParticleType::NULL,
-            Value::Int(_) | Value::Bool(_) => ParticleType::INTEGER,
+            Value::Int(_) => ParticleType::INTEGER,
             Value::UInt(_) => panic!(
                 "Aerospike does not support u64 natively on server-side. Use casting to \
                  store and retrieve u64 values."
@@ -235,6 +402,7 @@ impl Value {
             Value::Float(_) => ParticleType::FLOAT,
             Value::String(_) => ParticleType::STRING,
             Value::Blob(_) => ParticleType::BLOB,
+            Value::Bool(_) => ParticleType::BOOL,
             Value::List(_) => ParticleType::LIST,
             Value::HashMap(_) => ParticleType::MAP,
             Value::OrderedMap(_) => panic!("The library never passes ordered maps to the server."),
@@ -265,13 +433,14 @@ impl Value {
     pub fn estimate_size(&self) -> usize {
         match *self {
             Value::Nil => 0,
-            Value::Int(_) | Value::Bool(_) | Value::Float(_) => 8,
+            Value::Int(_) | Value::Float(_) => 8,
             Value::UInt(_) => panic!(
                 "Aerospike does not support u64 natively on server-side. Use casting to \
                  store and retrieve u64 values."
             ),
             Value::String(ref s) => s.len(),
             Value::Blob(ref b) => b.len(),
+            Value::Bool(_) => 1,
             Value::List(_) | Value::HashMap(_) => encoder::pack_value(&mut None, self),
             Value::OrderedMap(_) => panic!("The library never passes ordered maps to the server."),
             Value::GeoJSON(ref s) => 1 + 2 + s.len(), // flags + ncells + jsonstr
@@ -554,45 +723,102 @@ impl<'a> From<&'a Value> for i64 {
     }
 }
 
-#[doc(hidden)]
-pub fn bytes_to_particle(ptype: u8, buf: &mut Buffer, len: usize) -> Result<Value> {
-    match ParticleType::from(ptype) {
-        ParticleType::NULL => Ok(Value::Nil),
-        ParticleType::INTEGER => {
-            let val = buf.read_i64(None);
-            Ok(Value::Int(val))
+impl TryFrom<Value> for String {
+    type Error = String;
+    fn try_from(val: Value) -> std::result::Result<Self, Self::Error> {
+        match val {
+            Value::String(v) => Ok(v),
+            Value::GeoJSON(v) => Ok(v),
+            _ => bail!(format!(
+                "Invalid type conversion from Value::{} to {}",
+                val.particle_type(),
+                std::any::type_name::<Self>()
+            )),
         }
-        ParticleType::FLOAT => {
-            let val = buf.read_f64(None);
-            Ok(Value::Float(FloatValue::from(val)))
-        }
-        ParticleType::STRING => {
-            let val = buf.read_str(len)?;
-            Ok(Value::String(val))
-        }
-        ParticleType::GEOJSON => {
-            buf.skip(1);
-            let ncells = buf.read_i16(None) as usize;
-            let header_size: usize = ncells * 8;
-
-            buf.skip(header_size);
-            let val = buf.read_str(len - header_size - 3)?;
-            Ok(Value::GeoJSON(val))
-        }
-        ParticleType::BLOB => Ok(Value::Blob(buf.read_blob(len))),
-        ParticleType::LIST => {
-            let val = decoder::unpack_value_list(buf)?;
-            Ok(val)
-        }
-        ParticleType::MAP => {
-            let val = decoder::unpack_value_map(buf)?;
-            Ok(val)
-        }
-        ParticleType::DIGEST => Ok(Value::from("A DIGEST, NOT IMPLEMENTED YET!")),
-        ParticleType::LDT => Ok(Value::from("A LDT, NOT IMPLEMENTED YET!")),
-        ParticleType::HLL => Ok(Value::HLL(buf.read_blob(len))),
     }
 }
+
+impl TryFrom<Value> for Vec<u8> {
+    type Error = String;
+    fn try_from(val: Value) -> std::result::Result<Self, Self::Error> {
+        match val {
+            Value::Blob(v) => Ok(v),
+            Value::HLL(v) => Ok(v),
+            _ => bail!(format!(
+                "Invalid type conversion from Value::{} to {}",
+                val.particle_type(),
+                std::any::type_name::<Self>()
+            )),
+        }
+    }
+}
+
+impl TryFrom<Value> for Vec<Value> {
+    type Error = String;
+    fn try_from(val: Value) -> std::result::Result<Self, Self::Error> {
+        match val {
+            Value::List(v) => Ok(v),
+            _ => bail!(format!(
+                "Invalid type conversion from Value::{} to {}",
+                val.particle_type(),
+                std::any::type_name::<Self>()
+            )),
+        }
+    }
+}
+
+impl TryFrom<Value> for HashMap<Value, Value> {
+    type Error = String;
+    fn try_from(val: Value) -> std::result::Result<Self, Self::Error> {
+        match val {
+            Value::HashMap(v) => Ok(v),
+            _ => bail!(format!(
+                "Invalid type conversion from Value::{} to {}",
+                val.particle_type(),
+                std::any::type_name::<Self>()
+            )),
+        }
+    }
+}
+
+impl TryFrom<Value> for Vec<(Value, Value)> {
+    type Error = String;
+    fn try_from(val: Value) -> std::result::Result<Self, Self::Error> {
+        match val {
+            Value::OrderedMap(v) => Ok(v),
+            _ => bail!(format!(
+                "Invalid type conversion from Value::{} to {}",
+                val.particle_type(),
+                std::any::type_name::<Self>()
+            )),
+        }
+    }
+}
+
+impl TryFrom<Value> for f64 {
+    type Error = String;
+    fn try_from(val: Value) -> std::result::Result<Self, Self::Error> {
+        match val {
+            Value::Float(v) => Ok(f64::from(v)),
+            _ => bail!(format!(
+                "Invalid type conversion from Value::{} to {}",
+                val.particle_type(),
+                std::any::type_name::<Self>()
+            )),
+        }
+    }
+}
+
+impl TryFrom<Value> for bool {
+    type Error = String;
+    fn try_from(val: Value) -> std::result::Result<Self, Self::Error> {
+        match val {
+            Value::Bool(v) => Ok(v),
+            _ => bail!("Invalid type bool"),
+        }
+    }
+}
+
 
 /// Constructs a new Value from one of the supported native data types.
 #[macro_export]
@@ -760,6 +986,23 @@ impl Serialize for Value {
 #[cfg(test)]
 mod tests {
     use super::Value;
+    use std::collections::HashMap;
+    use std::convert::TryInto;
+
+    #[test]
+    fn try_into() {
+        let _: i64 = Value::Int(42).try_into().unwrap();
+        let _: f64 = Value::from(42.1).try_into().unwrap();
+        let _: String = Value::String("hello".into()).try_into().unwrap();
+        let _: String = Value::GeoJSON(r#"{"type":"Point"}"#.into())
+            .try_into()
+            .unwrap();
+        let _: Vec<u8> = Value::Blob("hello!".into()).try_into().unwrap();
+        let _: Vec<u8> = Value::HLL("hello!".into()).try_into().unwrap();
+        let _: bool = Value::Bool(false).try_into().unwrap();
+        let _: HashMap<Value, Value> = Value::HashMap(HashMap::new()).try_into().unwrap();
+        let _: Vec<(Value, Value)> = Value::OrderedMap(Vec::new()).try_into().unwrap();
+    }
 
     #[test]
     fn as_string() {
@@ -787,11 +1030,23 @@ mod tests {
     #[test]
     #[cfg(feature = "serialization")]
     fn serializer() {
-        let val: Value = as_list!("0", 9, 8, 7, 1, 2.1f64, -1, as_list!(5, 6, 7, 8, "asd"));
+        let val: Value = as_list!(
+            Value::Nil,
+            "0",
+            9,
+            8,
+            7,
+            1,
+            2.1f64,
+            -1,
+            as_list!(5, 6, 7, 8, "asd"),
+            true,
+            false
+        );
         let json = serde_json::to_string(&val);
         assert_eq!(
             json.unwrap(),
-            "[\"0\",9,8,7,1,2.1,-1,[5,6,7,8,\"asd\"]]",
+            "[null,\"0\",9,8,7,1,4611911198408756429,-1,[5,6,7,8,\"asd\"],true,false]",
             "List Serialization failed"
         );
 

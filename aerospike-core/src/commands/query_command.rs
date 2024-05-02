@@ -22,19 +22,19 @@ use crate::net::Connection;
 use crate::policy::QueryPolicy;
 use crate::{Recordset, Statement};
 
-pub struct QueryCommand<'a> {
-    stream_command: StreamCommand,
+pub struct QueryCommand<'a, T: serde::de::DeserializeOwned> {
+    stream_command: StreamCommand<T>,
     policy: &'a QueryPolicy,
     statement: Arc<Statement>,
     partitions: Vec<u16>,
 }
 
-impl<'a> QueryCommand<'a> {
+impl<'a, T: serde::de::DeserializeOwned + Send> QueryCommand<'a, T> {
     pub fn new(
         policy: &'a QueryPolicy,
         node: Arc<Node>,
         statement: Arc<Statement>,
-        recordset: Arc<Recordset>,
+        recordset: Arc<Recordset<T>>,
         partitions: Vec<u16>,
     ) -> Self {
         QueryCommand {
@@ -51,7 +51,8 @@ impl<'a> QueryCommand<'a> {
 }
 
 #[async_trait::async_trait]
-impl<'a> Command for QueryCommand<'a> {
+impl<'a, T: serde::de::DeserializeOwned + Send> Command for QueryCommand<'a, T> {
+    type Output = ();
     async fn write_timeout(
         &mut self,
         conn: &mut Connection,
@@ -59,10 +60,6 @@ impl<'a> Command for QueryCommand<'a> {
     ) -> Result<()> {
         conn.buffer.write_timeout(timeout);
         Ok(())
-    }
-
-    async fn write_buffer(&mut self, conn: &mut Connection) -> Result<()> {
-        conn.flush().await
     }
 
     fn prepare_buffer(&mut self, conn: &mut Connection) -> Result<()> {
@@ -81,5 +78,9 @@ impl<'a> Command for QueryCommand<'a> {
 
     async fn parse_result(&mut self, conn: &mut Connection) -> Result<()> {
         StreamCommand::parse_result(&mut self.stream_command, conn).await
+    }
+
+    async fn write_buffer(&mut self, conn: &mut Connection) -> Result<()> {
+        conn.flush().await
     }
 }

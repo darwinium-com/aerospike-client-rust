@@ -183,11 +183,11 @@ pub enum MapWriteMode {
 
     /// If the key already exists, the item will be overwritten.
     /// If the key does not exist, the write will fail.
-    UpdateOnly = 1,
+    UpdateOnly = 2,
 
     /// If the key already exists, the write will fail.
     /// If the key does not exist, a new item will be created.
-    CreateOnly = 2,
+    CreateOnly = 1,
 
     /// MapWriteFlagsNoFail means: Do not raise error if a map item is denied due to write flag constraints.
 	NoFail = 4,

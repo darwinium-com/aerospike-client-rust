@@ -13,6 +13,7 @@
 // License for the specific language governing permissions and limitations under
 // the License.
 
+use std::collections::HashMap;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::thread;
@@ -65,7 +66,8 @@ async fn query_single_consumer() {
     // Filter Query
     let mut statement = Statement::new(namespace, &set_name, Bins::All);
     statement.add_filter(as_eq!("bin", 1));
-    let rs = client.query(&qpolicy, statement).await.unwrap();
+    let rs: Arc<Recordset<HashMap<String, Value>>> =
+        client.query(&qpolicy, statement).await.unwrap();
     let mut count = 0;
     for res in &*rs {
         match res {
@@ -81,7 +83,8 @@ async fn query_single_consumer() {
     // Range Query
     let mut statement = Statement::new(namespace, &set_name, Bins::All);
     statement.add_filter(as_range!("bin", 0, 9));
-    let rs = client.query(&qpolicy, statement).await.unwrap();
+    let rs: Arc<Recordset<HashMap<String, Value>>> =
+        client.query(&qpolicy, statement).await.unwrap();
     let mut count = 0;
     for res in &*rs {
         match res {
@@ -110,7 +113,8 @@ async fn query_nobins() {
 
     let mut statement = Statement::new(namespace, &set_name, Bins::None);
     statement.add_filter(as_range!("bin", 0, 9));
-    let rs = client.query(&qpolicy, statement).await.unwrap();
+    let rs: Arc<Recordset<HashMap<String, Value>>> =
+        client.query(&qpolicy, statement).await.unwrap();
     let mut count = 0;
     for res in &*rs {
         match res {
@@ -140,7 +144,8 @@ async fn query_multi_consumer() {
     let mut statement = Statement::new(namespace, &set_name, Bins::All);
     let f = as_range!("bin", 0, 9);
     statement.add_filter(f);
-    let rs = client.query(&qpolicy, statement).await.unwrap();
+    let rs: Arc<Recordset<HashMap<String, Value>>> =
+        client.query(&qpolicy, statement).await.unwrap();
 
     let count = Arc::new(AtomicUsize::new(0));
     let mut threads = vec![];
@@ -191,7 +196,8 @@ async fn query_node() {
             let qpolicy = QueryPolicy::default();
             let mut statement = Statement::new(namespace, &set_name, Bins::All);
             statement.add_filter(as_range!("bin", 0, 99));
-            let rs = client.query_node(&qpolicy, node, statement).await.unwrap();
+            let rs: Arc<Recordset<HashMap<String, Value>>> =
+                client.query_node(&qpolicy, node, statement).await.unwrap();
             let ok = (&*rs).filter(Result::is_ok).count();
             count.fetch_add(ok, Ordering::Relaxed);
         }));
@@ -204,4 +210,40 @@ async fn query_node() {
     assert_eq!(count.load(Ordering::Relaxed), 100);
 
     client.close().await.unwrap();
+}
+
+// https://github.com/aerospike/aerospike-client-rust/issues/115
+#[aerospike_macro::test]
+async fn query_large_i64() {
+    const SET: &str = "large_i64";
+    const BIN: &str = "val";
+
+    let client = Arc::new(common::client().await);
+    let value = Value::from(i64::max_value());
+    let key = Key::new(common::namespace(), SET, value.clone()).unwrap();
+    let wpolicy = WritePolicy::default();
+
+    let res = client
+        .put(&wpolicy, &key, &[aerospike::Bin::new(BIN.into(), value)])
+        .await;
+
+    assert!(res.is_ok());
+
+    let mut qpolicy = aerospike::QueryPolicy::new();
+    let bin_name = aerospike::expressions::int_bin(BIN.into());
+    let bin_val = aerospike::expressions::int_val(i64::max_value());
+    qpolicy
+        .filter_expression
+        .replace(aerospike::expressions::eq(bin_name, bin_val));
+    let stmt = aerospike::Statement::new(common::namespace(), SET, aerospike::Bins::All);
+    let recordset: Arc<Recordset<HashMap<String, Value>>> =
+        client.query(&qpolicy, stmt).await.unwrap();
+
+    for r in &*recordset {
+        assert!(r.is_ok());
+        let int = r.unwrap().bins.remove(BIN).unwrap();
+        assert_eq!(int, Value::Int(i64::max_value()));
+    }
+
+    let _ = client.truncate(common::namespace(), SET, 0).await;
 }

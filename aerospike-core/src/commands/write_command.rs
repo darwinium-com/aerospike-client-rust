@@ -18,25 +18,26 @@ use std::time::Duration;
 use crate::cluster::{Cluster, Node};
 use crate::commands::buffer;
 use crate::commands::{Command, SingleCommand};
+use crate::derive::writable::WritableBins;
 use crate::errors::{ErrorKind, Result};
 use crate::net::Connection;
 use crate::operations::OperationType;
 use crate::policy::WritePolicy;
-use crate::{Bin, Key, ResultCode};
+use crate::{Key, ResultCode};
 
-pub struct WriteCommand<'a> {
+pub struct WriteCommand<'a, T: WritableBins> {
     single_command: SingleCommand<'a>,
     policy: &'a WritePolicy,
-    bins: &'a [Bin<'a>],
+    bins: &'a T,
     operation: OperationType,
 }
 
-impl<'a, 'b> WriteCommand<'a> {
+impl<'a, T: WritableBins> WriteCommand<'a, T> {
     pub fn new(
         policy: &'a WritePolicy,
         cluster: Arc<Cluster>,
         key: &'a Key,
-        bins: &'a [Bin<'b>],
+        bins: &'a T,
         operation: OperationType,
     ) -> Self {
         WriteCommand {
@@ -53,7 +54,8 @@ impl<'a, 'b> WriteCommand<'a> {
 }
 
 #[async_trait::async_trait]
-impl<'a, 'b> Command for WriteCommand<'a> {
+impl<'a, T: WritableBins> Command for WriteCommand<'a, T> {
+    type Output = ();
     async fn write_timeout(
         &mut self,
         conn: &mut Connection,

@@ -169,7 +169,6 @@ pub use result_code::ResultCode;
 pub use task::{IndexTask, RegisterTask, Task};
 pub use user::User;
 pub use value::{FloatValue, Value};
-pub use commands::operate_command::OperateRecord;
 
 #[macro_use]
 pub mod errors;
@@ -183,8 +182,11 @@ mod batch;
 mod client;
 mod cluster;
 mod commands;
+
+pub use commands::buffer::Buffer;
+
 pub mod expressions;
-mod msgpack;
+pub mod msgpack;
 mod net;
 pub mod operations;
 pub mod policy;
@@ -196,3 +198,5 @@ mod user;
 
 #[cfg(test)]
 extern crate hex;
+
+pub mod derive;

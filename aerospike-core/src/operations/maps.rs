@@ -190,11 +190,11 @@ pub enum MapWriteMode {
     CreateOnly = 2,
 
     /// MapWriteFlagsNoFail means: Do not raise error if a map item is denied due to write flag constraints.
-	MapWriteFlagsNoFail = 4,
+	NoFail = 4,
 
 	/// MapWriteFlagsPartial means: Allow other valid map items to be committed if a map item is denied due to
 	/// write flag constraints.
-	MapWriteFlagsPartial = 8
+	Partial = 8
 }
 
 /// `MapPolicy` directives when creating a map and writing map items.

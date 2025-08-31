@@ -31,24 +31,35 @@ pub fn put(
     bin: FilterExpression,
     ctx: &[CdtContext],
 ) -> FilterExpression {
-    let args: Vec<ExpressionArgument>;
-    let op = map_write_op(policy, false);
-    if op as u8 == CdtMapOpType::Replace as u8 {
-        args = vec![
+    let args = 
+    if policy.flags != 0 {
+        vec![
             ExpressionArgument::Context(ctx.to_vec()),
-            ExpressionArgument::Value(Value::from(op as u8)),
-            ExpressionArgument::FilterExpression(key),
-            ExpressionArgument::FilterExpression(value),
-        ];
-    } else {
-        args = vec![
-            ExpressionArgument::Context(ctx.to_vec()),
-            ExpressionArgument::Value(Value::from(op as u8)),
+            ExpressionArgument::Value(Value::from(CdtMapOpType::Put as u8)),
             ExpressionArgument::FilterExpression(key),
             ExpressionArgument::FilterExpression(value),
             ExpressionArgument::Value(Value::from(policy.order as u8)),
-        ];
-    }
+            ExpressionArgument::Value(Value::from(policy.flags as u8)),
+        ]
+    } else {
+        let op = map_write_op(policy, false);
+        if op as u8 == CdtMapOpType::Replace as u8 {
+            vec![
+                ExpressionArgument::Context(ctx.to_vec()),
+                ExpressionArgument::Value(Value::from(op as u8)),
+                ExpressionArgument::FilterExpression(key),
+                ExpressionArgument::FilterExpression(value),
+            ]
+        } else {
+            vec![
+                ExpressionArgument::Context(ctx.to_vec()),
+                ExpressionArgument::Value(Value::from(op as u8)),
+                ExpressionArgument::FilterExpression(key),
+                ExpressionArgument::FilterExpression(value),
+                ExpressionArgument::Value(Value::from(policy.order as u8)),
+            ]
+        }
+    };
     add_write(bin, ctx, args)
 }
 

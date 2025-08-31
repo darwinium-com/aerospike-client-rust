@@ -179,15 +179,22 @@ impl ToMapReturnTypeBitmask for InvertedMapReturn {
 pub enum MapWriteMode {
     /// If the key already exists, the item will be overwritten.
     /// If the key does not exist, a new item will be created.
-    Update,
+    Update = 0,
 
     /// If the key already exists, the item will be overwritten.
     /// If the key does not exist, the write will fail.
-    UpdateOnly,
+    UpdateOnly = 1,
 
     /// If the key already exists, the write will fail.
     /// If the key does not exist, a new item will be created.
-    CreateOnly,
+    CreateOnly = 2,
+
+    /// MapWriteFlagsNoFail means: Do not raise error if a map item is denied due to write flag constraints.
+	MapWriteFlagsNoFail = 4,
+
+	/// MapWriteFlagsPartial means: Allow other valid map items to be committed if a map item is denied due to
+	/// write flag constraints.
+	MapWriteFlagsPartial = 8
 }
 
 /// `MapPolicy` directives when creating a map and writing map items.
@@ -197,12 +204,42 @@ pub struct MapPolicy {
     pub order: MapOrder,
     /// The Map Write Mode
     pub write_mode: MapWriteMode,
+    /// Flags (for server version >= 5.4.0), 0 for "use write mode"
+    pub flags: u8,
 }
+
+/// Something that can be resolved into a set of ExpWriteFlags. Either a single MapWriteMode, Option<MapWriteMode>, [MapWriteMode], etc.
+pub trait ToMapWriteFlagsBitmask {
+    /// Convert to an u8 bitmask potentially containing multiple flags
+    fn to_bitmask(self) -> u8;
+}
+
+impl ToMapWriteFlagsBitmask for MapWriteMode {
+    fn to_bitmask(self) -> u8 {
+        self as u8
+    }
+}
+
+impl<T: IntoIterator<Item=MapWriteMode>> ToMapWriteFlagsBitmask for T {
+    fn to_bitmask(self) -> u8 {
+        let mut out = 0;
+        for val in self {
+            out |= val.to_bitmask();
+        }
+        out
+    }
+}
+
 
 impl MapPolicy {
     /// Create a new map policy given the ordering for the map and the write mode.
     pub const fn new(order: MapOrder, write_mode: MapWriteMode) -> Self {
-        MapPolicy { order, write_mode }
+        MapPolicy { order, write_mode, flags: 0 }
+    }
+    
+    /// Create a new map policy given the ordering for the map and the write mode.
+    pub fn new_with_flags(order: MapOrder, write_mode: impl ToMapWriteFlagsBitmask) -> Self {
+        MapPolicy { order, write_mode: MapWriteMode::Update, flags: write_mode.to_bitmask()}
     }
 }
 
@@ -217,13 +254,6 @@ impl Default for MapPolicy {
 #[allow(clippy::trivially_copy_pass_by_ref)]
 pub(crate) const fn map_write_op(policy: &MapPolicy, multi: bool) -> CdtMapOpType {
     match policy.write_mode {
-        MapWriteMode::Update => {
-            if multi {
-                CdtMapOpType::PutItems
-            } else {
-                CdtMapOpType::Put
-            }
-        }
         MapWriteMode::UpdateOnly => {
             if multi {
                 CdtMapOpType::ReplaceItems
@@ -236,6 +266,13 @@ pub(crate) const fn map_write_op(policy: &MapPolicy, multi: bool) -> CdtMapOpTyp
                 CdtMapOpType::AddItems
             } else {
                 CdtMapOpType::Add
+            }
+        }
+        _ => {
+            if multi {
+                CdtMapOpType::PutItems
+            } else {
+                CdtMapOpType::Put
             }
         }
     }
@@ -293,10 +330,19 @@ pub fn put<'a>(
     if let Some(arg) = map_order_arg(policy) {
         args.push(arg);
     }
-    let cdt_op = CdtOperation {
-        op: map_write_op(policy, false) as u8,
-        encoder: Box::new(pack_cdt_op),
-        args,
+    let cdt_op = if policy.flags == 0 {
+        CdtOperation {
+            op: map_write_op(policy, false) as u8,
+            encoder: Box::new(pack_cdt_op),
+            args,
+        }
+    } else {
+        args.push(CdtArgument::Byte(policy.flags));
+        CdtOperation {
+            op: CdtMapOpType::Put as u8,
+            encoder: Box::new(pack_cdt_op),
+            args,
+        }
     };
     Operation {
         op: OperationType::CdtWrite,

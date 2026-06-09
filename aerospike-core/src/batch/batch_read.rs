@@ -16,39 +16,73 @@
 use crate::Bins;
 use crate::Key;
 use crate::Record;
-#[cfg(feature = "serialization")]
-use serde::Serialize;
+use crate::operations::Operation;
+
+#[derive(Debug, Clone)]
+pub enum BatchReadSource<'a> {
+    Bin(Bins),
+    Ops(Vec<Operation<'a>>),
+    OpsSlice(&'a [Operation<'a>]),
+}
 
 /// Key and bin names used in batch read commands where variable bins are needed for each key.
-#[cfg_attr(feature = "serialization", derive(Serialize))]
 #[derive(Debug, Clone)]
-pub struct BatchRead {
+pub struct BatchRead<'a> {
     /// Key.
     pub key: Key,
 
-    /// Bins to retrieve for this key.
-    pub bins: Bins,
+    /// Batch read source, bins or ops
+    pub source: BatchReadSource<'a>,
 
     /// Will contain the record after the batch read operation.
     pub record: Option<Record>,
 }
 
-impl BatchRead {
+impl<'a> BatchRead<'a> {
     /// Create a new `BatchRead` instance for the given key and bin selector.
     pub const fn new(key: Key, bins: Bins) -> Self {
         BatchRead {
             key,
-            bins,
+            source: BatchReadSource::Bin(bins),
+            record: None,
+        }
+    }
+
+    /// Create a new `BatchRead` instance for the given key and ops.
+    pub fn with_ops(key: Key, ops: Vec<Operation<'a>>) -> Self {
+        BatchRead {
+            key,
+            source: BatchReadSource::Ops(ops),
+            record: None,
+        }
+    }
+
+    /// Create a new `BatchRead` instance for the given key and ops.
+    /// If consecutive batch reads refer to the exact same ops slice the wire
+    /// protocol will only send the ops once for that set of batch reads.
+    /// This can result in substantial savings if operations are large.
+    pub fn with_ops_slice(key: Key, ops: &'a [Operation<'a>]) -> Self {
+        BatchRead {
+            key,
+            source: BatchReadSource::OpsSlice(ops),
             record: None,
         }
     }
 
     #[doc(hidden)]
-    pub fn match_header(&self, other: &BatchRead, match_set: bool) -> bool {
+    pub fn match_header(&self, other: &BatchRead<'a>, match_set: bool) -> bool {
         let key = &self.key;
         let other_key = &other.key;
-        (key.namespace == other_key.namespace)
-            && (match_set && (key.set_name == other_key.set_name))
-            && (self.bins == other.bins)
+
+        let source_matches = match (&self.source, &other.source) {
+            (BatchReadSource::Bin(lhs), BatchReadSource::Bin(rhs)) => lhs == rhs,
+            (BatchReadSource::OpsSlice(lhs), BatchReadSource::OpsSlice(rhs)) => std::ptr::eq(*lhs, *rhs),
+            _ => false, // deep operation comparison is probably not worth it
+        };
+
+        source_matches &&
+            (key.namespace == other_key.namespace)
+            && (!match_set || (key.set_name == other_key.set_name))
     }
 }
+

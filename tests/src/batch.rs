@@ -28,8 +28,7 @@ async fn batch_get() {
     let client = common::client().await;
     let namespace: &str = common::namespace();
     let set_name = &common::rand_str(10);
-    let mut bpolicy = BatchPolicy::default();
-    bpolicy.concurrency = Concurrency::Parallel;
+    let bpolicy = BatchPolicy::default();
     let wpolicy = WritePolicy::default();
 
     let bin1 = as_bin!("a", "a value");

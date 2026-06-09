@@ -14,7 +14,7 @@
 // the License.
 
 use crate::expressions::FilterExpression;
-use crate::policy::{BasePolicy, Concurrency, PolicyLike};
+use crate::policy::{BasePolicy, PolicyLike};
 
 use super::Replica;
 
@@ -23,10 +23,6 @@ use super::Replica;
 pub struct BatchPolicy {
     /// Base policy instance
     pub base_policy: BasePolicy,
-
-    /// Concurrency mode for batch requests: Sequential or Parallel (with optional max. no of
-    /// parallel threads).
-    pub concurrency: Concurrency,
 
     /// Allow batch to be processed immediately in the server's receiving thread when the server
     /// deems it to be appropriate. If false, the batch will always be processed in separate
@@ -71,7 +67,6 @@ impl Default for BatchPolicy {
     fn default() -> Self {
         BatchPolicy {
             base_policy: BasePolicy::default(),
-            concurrency: Concurrency::Sequential,
             allow_inline: true,
             send_set_name: false,
             filter_expression: None,

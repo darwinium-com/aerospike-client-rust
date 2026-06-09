@@ -341,10 +341,10 @@ impl Buffer {
     }
 
     // Writes the command for batch read operations
-    pub fn set_batch_read(
+    pub fn set_batch_read<'a>(
         &mut self,
         policy: &BatchPolicy,
-        batch_reads: &[(BatchRead, usize)],
+        batch_reads: &[(BatchRead<'a>, usize)],
     ) -> Result<()> {
         let field_count_row = if policy.send_set_name { 2 } else { 1 };
 
@@ -357,7 +357,7 @@ impl Buffer {
             field_count += 1;
         }
 
-        let mut prev: Option<&BatchRead> = None;
+        let mut prev: Option<&BatchRead<'a>> = None;
         for (batch_read, _) in batch_reads {
             self.data_offset += batch_read.key.digest.len() + 4;
             match prev {
@@ -370,10 +370,27 @@ impl Buffer {
                     if policy.send_set_name {
                         self.data_offset += key.set_name.len() + FIELD_HEADER_SIZE as usize;
                     }
-                    if let Bins::Some(ref bin_names) = batch_read.bins {
-                        for name in bin_names {
-                            self.estimate_operation_size_for_bin_name(name);
-                        }
+
+                    use crate::batch::batch_read::BatchReadSource;
+                    match &batch_read.source {
+                        BatchReadSource::Bin(bins) => {
+                            if let Bins::Some(bin_names) = bins {
+                                for name in bin_names {
+                                    self.estimate_operation_size_for_bin_name(name);
+                                }
+                            }
+                        },
+                        BatchReadSource::Ops(_) | BatchReadSource::OpsSlice(_) => {
+                            let ops: &[_] = match &batch_read.source {
+                                BatchReadSource::Ops(ops) => ops.as_slice(),
+                                BatchReadSource::OpsSlice(ops) => ops,
+                                _ => unreachable!(),
+                            };
+
+                            for op in ops {
+                                self.data_offset += op.estimate_size() + OPERATION_HEADER_SIZE as usize;
+                            }
+                        },
                     }
                 }
             }
@@ -414,8 +431,10 @@ impl Buffer {
                 }
                 _ => {
                     self.write_u8(0);
-                    match batch_read.bins {
-                        Bins::None => {
+
+                    use crate::batch::batch_read::BatchReadSource;
+                    match &batch_read.source {
+                        BatchReadSource::Bin(Bins::None) => {
                             self.write_u8(INFO1_READ | INFO1_NOBINDATA);
                             self.write_u16(field_count_row);
                             self.write_u16(0);
@@ -424,7 +443,7 @@ impl Buffer {
                                 self.write_field_string(&key.set_name, FieldType::Table);
                             }
                         }
-                        Bins::All => {
+                        BatchReadSource::Bin(Bins::All) => {
                             self.write_u8(INFO1_READ | INFO1_GET_ALL);
                             self.write_u16(field_count_row);
                             self.write_u16(0);
@@ -433,7 +452,7 @@ impl Buffer {
                                 self.write_field_string(&key.set_name, FieldType::Table);
                             }
                         }
-                        Bins::Some(ref bin_names) => {
+                        BatchReadSource::Bin(Bins::Some(bin_names)) => {
                             self.write_u8(INFO1_READ);
                             self.write_u16(field_count_row);
                             self.write_u16(bin_names.len() as u16);
@@ -443,6 +462,39 @@ impl Buffer {
                             }
                             for bin in bin_names {
                                 self.write_operation_for_bin_name(bin, OperationType::Read);
+                            }
+                        }
+                        BatchReadSource::Ops(_) | BatchReadSource::OpsSlice(_) => {
+                            let ops: &[_] = match &batch_read.source {
+                                BatchReadSource::Ops(ops) => ops.as_slice(),
+                                BatchReadSource::OpsSlice(ops) => ops,
+                                _ => unreachable!(),
+                            };
+
+                            let mut read_attr = INFO1_READ;
+                            let mut has_name = false;
+                            for operation in ops {
+                                match operation.bin {
+                                    OperationBin::None => {},
+                                    OperationBin::All => { read_attr |= INFO1_GET_ALL; },
+                                    OperationBin::Name(_) => { has_name = true },
+                                }
+                            }
+
+                            if !has_name && (read_attr & INFO1_GET_ALL) == 0 {
+                                read_attr |= INFO1_NOBINDATA;
+                            }
+
+                            self.write_u8(read_attr);
+                            self.write_u16(field_count_row);
+                            self.write_u16(ops.len() as u16);
+                            self.write_field_string(&key.namespace, FieldType::Namespace);
+                            if policy.send_set_name {
+                                self.write_field_string(&key.set_name, FieldType::Table);
+                            }
+
+                            for op in ops {
+                                op.write_to(self);
                             }
                         }
                     }

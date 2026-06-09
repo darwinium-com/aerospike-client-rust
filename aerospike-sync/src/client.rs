@@ -19,6 +19,7 @@ use std::vec::Vec;
 
 use aerospike_core::errors::Result;
 use aerospike_core::operations::Operation;
+use aerospike_core::OperateRecord;
 use aerospike_core::{
     BatchPolicy, BatchRead, Bin, Bins, ClientPolicy, CollectionIndexType, IndexTask, IndexType,
     Key, Node, QueryPolicy, ReadPolicy, Record, Recordset, RegisterTask, ScanPolicy, Statement,
@@ -202,11 +203,11 @@ impl Client {
     ///         => println!("Error executing batch request: {}", err),
     /// }
     /// ```
-    pub fn batch_get(
+    pub fn batch_get<'a>(
         &self,
         policy: &BatchPolicy,
-        batch_reads: Vec<BatchRead>,
-    ) -> Result<Vec<BatchRead>> {
+        batch_reads: Vec<BatchRead<'a>>,
+    ) -> Result<Vec<BatchRead<'a>>> {
         block_on(self.async_client.batch_get(policy, batch_reads))
     }
 
@@ -396,7 +397,7 @@ impl Client {
         policy: &WritePolicy,
         key: &Key,
         ops: &[Operation<'_>],
-    ) -> Result<Record> {
+    ) -> Result<OperateRecord> {
         block_on(self.async_client.operate(policy, key, ops))
     }
 

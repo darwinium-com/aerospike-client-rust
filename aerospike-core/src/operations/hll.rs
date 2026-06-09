@@ -15,6 +15,7 @@
 
 //! `HyperLogLog` operations on HLL items nested in lists/maps are not currently
 //! supported by the server.
+use std::sync::Arc;
 
 use crate::msgpack::encoder::pack_hll_op;
 use crate::operations::cdt::{CdtArgument, CdtOperation};
@@ -125,7 +126,7 @@ pub fn init_with_min_hash<'a>(
 ) -> Operation<'a> {
     let cdt_op = CdtOperation {
         op: HLLOpType::Init as u8,
-        encoder: Box::new(pack_hll_op),
+        encoder: Arc::new(pack_hll_op),
         args: vec![
             CdtArgument::Int(index_bit_count),
             CdtArgument::Int(min_hash_bit_count),
@@ -171,7 +172,7 @@ pub fn add_with_index_and_min_hash<'a>(
 ) -> Operation<'a> {
     let cdt_op = CdtOperation {
         op: HLLOpType::Add as u8,
-        encoder: Box::new(pack_hll_op),
+        encoder: Arc::new(pack_hll_op),
         args: vec![
             CdtArgument::List(list),
             CdtArgument::Int(index_bit_count),
@@ -193,7 +194,7 @@ pub fn add_with_index_and_min_hash<'a>(
 pub fn set_union<'a>(policy: &HLLPolicy, bin: &'a str, list: &'a [Value]) -> Operation<'a> {
     let cdt_op = CdtOperation {
         op: HLLOpType::SetUnion as u8,
-        encoder: Box::new(pack_hll_op),
+        encoder: Arc::new(pack_hll_op),
         args: vec![
             CdtArgument::List(list),
             CdtArgument::Byte(policy.flags as u8),
@@ -212,7 +213,7 @@ pub fn set_union<'a>(policy: &HLLPolicy, bin: &'a str, list: &'a [Value]) -> Ope
 pub fn refresh_count(bin: &str) -> Operation {
     let cdt_op = CdtOperation {
         op: HLLOpType::SetCount as u8,
-        encoder: Box::new(pack_hll_op),
+        encoder: Arc::new(pack_hll_op),
         args: vec![],
     };
     Operation {
@@ -230,7 +231,7 @@ pub fn refresh_count(bin: &str) -> Operation {
 pub fn fold(bin: &str, index_bit_count: i64) -> Operation {
     let cdt_op = CdtOperation {
         op: HLLOpType::Fold as u8,
-        encoder: Box::new(pack_hll_op),
+        encoder: Arc::new(pack_hll_op),
         args: vec![CdtArgument::Int(index_bit_count)],
     };
     Operation {
@@ -246,7 +247,7 @@ pub fn fold(bin: &str, index_bit_count: i64) -> Operation {
 pub fn get_count(bin: &str) -> Operation {
     let cdt_op = CdtOperation {
         op: HLLOpType::Count as u8,
-        encoder: Box::new(pack_hll_op),
+        encoder: Arc::new(pack_hll_op),
         args: vec![],
     };
     Operation {
@@ -263,7 +264,7 @@ pub fn get_count(bin: &str) -> Operation {
 pub fn get_union<'a>(bin: &'a str, list: &'a [Value]) -> Operation<'a> {
     let cdt_op = CdtOperation {
         op: HLLOpType::Union as u8,
-        encoder: Box::new(pack_hll_op),
+        encoder: Arc::new(pack_hll_op),
         args: vec![CdtArgument::List(list)],
     };
     Operation {
@@ -280,7 +281,7 @@ pub fn get_union<'a>(bin: &'a str, list: &'a [Value]) -> Operation<'a> {
 pub fn get_union_count<'a>(bin: &'a str, list: &'a [Value]) -> Operation<'a> {
     let cdt_op = CdtOperation {
         op: HLLOpType::UnionCount as u8,
-        encoder: Box::new(pack_hll_op),
+        encoder: Arc::new(pack_hll_op),
         args: vec![CdtArgument::List(list)],
     };
     Operation {
@@ -297,7 +298,7 @@ pub fn get_union_count<'a>(bin: &'a str, list: &'a [Value]) -> Operation<'a> {
 pub fn get_intersect_count<'a>(bin: &'a str, list: &'a [Value]) -> Operation<'a> {
     let cdt_op = CdtOperation {
         op: HLLOpType::IntersectCount as u8,
-        encoder: Box::new(pack_hll_op),
+        encoder: Arc::new(pack_hll_op),
         args: vec![CdtArgument::List(list)],
     };
     Operation {
@@ -313,7 +314,7 @@ pub fn get_intersect_count<'a>(bin: &'a str, list: &'a [Value]) -> Operation<'a>
 pub fn get_similarity<'a>(bin: &'a str, list: &'a [Value]) -> Operation<'a> {
     let cdt_op = CdtOperation {
         op: HLLOpType::Similarity as u8,
-        encoder: Box::new(pack_hll_op),
+        encoder: Arc::new(pack_hll_op),
         args: vec![CdtArgument::List(list)],
     };
     Operation {
@@ -330,7 +331,7 @@ pub fn get_similarity<'a>(bin: &'a str, list: &'a [Value]) -> Operation<'a> {
 pub fn describe(bin: &str) -> Operation {
     let cdt_op = CdtOperation {
         op: HLLOpType::Describe as u8,
-        encoder: Box::new(pack_hll_op),
+        encoder: Arc::new(pack_hll_op),
         args: vec![],
     };
     Operation {

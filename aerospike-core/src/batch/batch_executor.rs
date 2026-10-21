@@ -21,7 +21,7 @@ use crate::cluster::partition::Partition;
 use crate::cluster::{Cluster, Node};
 use crate::commands::BatchReadCommand;
 use crate::errors::Result;
-use crate::policy::{BatchPolicy, Concurrency};
+use crate::policy::BatchPolicy;
 use crate::Key;
 
 pub struct BatchExecutor {
@@ -35,42 +35,37 @@ impl BatchExecutor {
         BatchExecutor { cluster }
     }
 
-
-    pub async fn execute_batch_read(
+    pub async fn execute_batch_read<'a>(
         &self,
         policy: &BatchPolicy,
-        batch_reads: Vec<BatchRead>,
-    ) -> Result<Vec<BatchRead>> {
+        batch_reads: Vec<BatchRead<'a>>,
+    ) -> Result<Vec<BatchRead<'a>>> {
         let batch_nodes = self.get_batch_nodes(&batch_reads, policy.replica)?;
-        let mut jobs = Vec::<BatchReadCommand>::new();
+        let mut jobs = Vec::<BatchReadCommand<'a>>::new();
         for (node, node_jobs) in batch_nodes {
             for node_chunk in node_jobs.chunks(MAX_BATCH_REQUEST_SIZE) {
                 jobs.push( BatchReadCommand::new(policy, node.clone(), node_chunk.to_vec()) );
             }
         }
-        let reads = self.execute_batch_jobs(jobs, policy.concurrency).await?;
+        let reads = self.execute_batch_jobs(jobs).await?;
         let mut all_results: Vec<_> = reads.into_iter().flat_map(|cmd|cmd.batch_reads).collect();
         all_results.sort_by_key(|(_, i)|*i);
         Ok(all_results.into_iter().map(|(b, _)|b).collect())
     }
 
-    async fn execute_batch_jobs(
+    async fn execute_batch_jobs<'a>(
         &self,
-        jobs: Vec<BatchReadCommand>,
-        concurrency: Concurrency,
-    ) -> Result<Vec<BatchReadCommand>> {
-        let handles = jobs.into_iter().map(|job|job.execute(self.cluster.clone()));
-        match concurrency {
-            Concurrency::Sequential => futures::future::join_all(handles).await.into_iter().collect(),
-            Concurrency::Parallel => futures::future::join_all(handles.map(aerospike_rt::spawn)).await.into_iter().map(|value|value.map_err(|e|e.to_string())?).collect(),
-        }
+        jobs: Vec<BatchReadCommand<'a>>,
+    ) -> Result<Vec<BatchReadCommand<'a>>> {
+        let handles = jobs.into_iter().map(|job: BatchReadCommand<'a>|job.execute(self.cluster.clone()));
+        futures::future::join_all(handles).await.into_iter().collect()
     }
 
-    fn get_batch_nodes(
+    fn get_batch_nodes<'a>(
         &self,
-        batch_reads: &[BatchRead],
+        batch_reads: &[BatchRead<'a>],
         replica: crate::policy::Replica,
-    ) -> Result<HashMap<Arc<Node>, Vec<(BatchRead, usize)>>> {
+    ) -> Result<HashMap<Arc<Node>, Vec<(BatchRead<'a>, usize)>>> {
         let mut map = HashMap::new();
         for (index, batch_read) in batch_reads.iter().enumerate() {
             let node = self.node_for_key(&batch_read.key, replica)?;

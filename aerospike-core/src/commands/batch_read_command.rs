@@ -31,14 +31,14 @@ struct BatchRecord {
 }
 
 #[derive(Clone, Debug)]
-pub struct BatchReadCommand {
+pub struct BatchReadCommand<'a> {
     policy: BatchPolicy,
     pub node: Arc<Node>,
-    pub batch_reads: Vec<(BatchRead, usize)>,
+    pub batch_reads: Vec<(BatchRead<'a>, usize)>,
 }
 
-impl BatchReadCommand {
-    pub fn new(policy: &BatchPolicy, node: Arc<Node>, batch_reads: Vec<(BatchRead, usize)>) -> Self {
+impl<'a> BatchReadCommand<'a> {
+    pub fn new(policy: &BatchPolicy, node: Arc<Node>, batch_reads: Vec<(BatchRead<'a>, usize)>) -> Self {
         BatchReadCommand {
             policy: policy.clone(),
             node,
@@ -105,7 +105,7 @@ impl BatchReadCommand {
         }
     }
 
-    async fn request_group(batch_reads: &mut [(BatchRead, usize)], policy: &BatchPolicy, node: Arc<Node>, deadline: Option<Instant>) -> Result<bool> {
+    async fn request_group(batch_reads: &mut [(BatchRead<'a>, usize)], policy: &BatchPolicy, node: Arc<Node>, deadline: Option<Instant>) -> Result<bool> {
         let mut conn = match crate::commands::single_command::try_with_timeout(deadline, node.get_connection()).await {
             Ok(conn) => conn,
             Err(err) => {
@@ -144,7 +144,7 @@ impl BatchReadCommand {
         }
     }
 
-    async fn parse_group(batch_reads: &mut [(BatchRead, usize)], conn: &mut Connection, size: usize) -> Result<bool> {
+    async fn parse_group(batch_reads: &mut [(BatchRead<'a>, usize)], conn: &mut Connection, size: usize) -> Result<bool> {
         while conn.bytes_read() < size {
             conn.read_buffer(commands::buffer::MSG_REMAINING_HEADER_SIZE as usize)
                 .await?;
@@ -212,7 +212,7 @@ impl BatchReadCommand {
         }))
     }
 
-    async fn parse_result(batch_reads: &mut [(BatchRead, usize)], conn: &mut Connection) -> Result<()> {
+    async fn parse_result(batch_reads: &mut [(BatchRead<'a>, usize)], conn: &mut Connection) -> Result<()> {
         loop {
             conn.read_buffer(8).await?;
             let size = conn.buffer.read_msg_size(None);

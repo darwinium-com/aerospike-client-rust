@@ -223,11 +223,11 @@ impl Client {
     ///         => println!("Error executing batch request: {}", err),
     /// }
     /// ```
-    pub async fn batch_get(
+    pub async fn batch_get<'a>(
         &self,
         policy: &BatchPolicy,
-        batch_reads: Vec<BatchRead>,
-    ) -> Result<Vec<BatchRead>> {
+        batch_reads: Vec<BatchRead<'a>>,
+    ) -> Result<Vec<BatchRead<'a>>> {
         let executor = BatchExecutor::new(self.cluster.clone());
         executor.execute_batch_read(policy, batch_reads).await
     }

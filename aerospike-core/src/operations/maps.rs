@@ -39,6 +39,7 @@
 //! * Rank -3: Item with third highest ranked value in map.
 //! * Rank 1 Count 2: Second and third lowest ranked items in map.
 //! * Rank -3 Count 3: Top three ranked items in map.
+use std::sync::Arc;
 
 use crate::msgpack::encoder::pack_cdt_op;
 use crate::operations::cdt::{CdtArgument, CdtOperation};
@@ -301,7 +302,7 @@ pub const fn map_order_flag(order: MapOrder) -> u8 {
 pub fn set_order(bin: &str, map_order: MapOrder) -> Operation {
     let cdt_op = CdtOperation {
         op: CdtMapOpType::SetType as u8,
-        encoder: Box::new(pack_cdt_op),
+        encoder: Arc::new(pack_cdt_op),
         args: vec![CdtArgument::Byte(map_order as u8)],
     };
     Operation {
@@ -333,14 +334,14 @@ pub fn put<'a>(
     let cdt_op = if policy.flags == 0 {
         CdtOperation {
             op: map_write_op(policy, false) as u8,
-            encoder: Box::new(pack_cdt_op),
+            encoder: Arc::new(pack_cdt_op),
             args,
         }
     } else {
         args.push(CdtArgument::Byte(policy.flags));
         CdtOperation {
             op: CdtMapOpType::Put as u8,
-            encoder: Box::new(pack_cdt_op),
+            encoder: Arc::new(pack_cdt_op),
             args,
         }
     };
@@ -369,7 +370,7 @@ pub fn put_items<'a>(
     }
     let cdt_op = CdtOperation {
         op: map_write_op(policy, true) as u8,
-        encoder: Box::new(pack_cdt_op),
+        encoder: Arc::new(pack_cdt_op),
         args,
     };
     Operation {
@@ -400,7 +401,7 @@ pub fn increment_value<'a>(
     }
     let cdt_op = CdtOperation {
         op: CdtMapOpType::Increment as u8,
-        encoder: Box::new(pack_cdt_op),
+        encoder: Arc::new(pack_cdt_op),
         args,
     };
     Operation {
@@ -431,7 +432,7 @@ pub fn decrement_value<'a>(
     }
     let cdt_op = CdtOperation {
         op: CdtMapOpType::Decrement as u8,
-        encoder: Box::new(pack_cdt_op),
+        encoder: Arc::new(pack_cdt_op),
         args,
     };
     Operation {
@@ -447,7 +448,7 @@ pub fn decrement_value<'a>(
 pub fn clear(bin: &str) -> Operation {
     let cdt_op = CdtOperation {
         op: CdtMapOpType::Clear as u8,
-        encoder: Box::new(pack_cdt_op),
+        encoder: Arc::new(pack_cdt_op),
         args: vec![],
     };
     Operation {
@@ -467,7 +468,7 @@ pub fn remove_by_key<'a, TMR: ToMapReturnTypeBitmask>(
 ) -> Operation<'a> {
     let cdt_op = CdtOperation {
         op: CdtMapOpType::RemoveByKey as u8,
-        encoder: Box::new(pack_cdt_op),
+        encoder: Arc::new(pack_cdt_op),
         args: vec![
             CdtArgument::Int(return_type.to_bitmask()),
             CdtArgument::Value(key),
@@ -490,7 +491,7 @@ pub fn remove_by_key_list<'a, TMR: ToMapReturnTypeBitmask>(
 ) -> Operation<'a> {
     let cdt_op = CdtOperation {
         op: CdtMapOpType::RemoveKeyList as u8,
-        encoder: Box::new(pack_cdt_op),
+        encoder: Arc::new(pack_cdt_op),
         args: vec![
             CdtArgument::Int(return_type.to_bitmask()),
             CdtArgument::List(keys),
@@ -523,7 +524,7 @@ pub fn remove_by_key_range<'a, TMR: ToMapReturnTypeBitmask>(
     }
     let cdt_op = CdtOperation {
         op: CdtMapOpType::RemoveByKeyInterval as u8,
-        encoder: Box::new(pack_cdt_op),
+        encoder: Arc::new(pack_cdt_op),
         args,
     };
     Operation {
@@ -543,7 +544,7 @@ pub fn remove_by_value<'a, TMR: ToMapReturnTypeBitmask>(
 ) -> Operation<'a> {
     let cdt_op = CdtOperation {
         op: CdtMapOpType::RemoveByValue as u8,
-        encoder: Box::new(pack_cdt_op),
+        encoder: Arc::new(pack_cdt_op),
         args: vec![
             CdtArgument::Int(return_type.to_bitmask()),
             CdtArgument::Value(value),
@@ -566,7 +567,7 @@ pub fn remove_by_value_list<'a, TMR: ToMapReturnTypeBitmask>(
 ) -> Operation<'a> {
     let cdt_op = CdtOperation {
         op: CdtMapOpType::RemoveValueList as u8,
-        encoder: Box::new(pack_cdt_op),
+        encoder: Arc::new(pack_cdt_op),
         args: vec![
             CdtArgument::Int(return_type.to_bitmask()),
             CdtArgument::List(values),
@@ -599,7 +600,7 @@ pub fn remove_by_value_range<'a, TMR: ToMapReturnTypeBitmask>(
     }
     let cdt_op = CdtOperation {
         op: CdtMapOpType::RemoveByValueInterval as u8,
-        encoder: Box::new(pack_cdt_op),
+        encoder: Arc::new(pack_cdt_op),
         args,
     };
     Operation {
@@ -615,7 +616,7 @@ pub fn remove_by_value_range<'a, TMR: ToMapReturnTypeBitmask>(
 pub fn remove_by_index<TMR: ToMapReturnTypeBitmask>(bin: &str, index: i64, return_type: TMR) -> Operation {
     let cdt_op = CdtOperation {
         op: CdtMapOpType::RemoveByIndex as u8,
-        encoder: Box::new(pack_cdt_op),
+        encoder: Arc::new(pack_cdt_op),
         args: vec![
             CdtArgument::Int(return_type.to_bitmask()),
             CdtArgument::Int(index),
@@ -639,7 +640,7 @@ pub fn remove_by_index_range<TMR: ToMapReturnTypeBitmask>(
 ) -> Operation {
     let cdt_op = CdtOperation {
         op: CdtMapOpType::RemoveByIndexRange as u8,
-        encoder: Box::new(pack_cdt_op),
+        encoder: Arc::new(pack_cdt_op),
         args: vec![
             CdtArgument::Int(return_type.to_bitmask()),
             CdtArgument::Int(index),
@@ -659,7 +660,7 @@ pub fn remove_by_index_range<TMR: ToMapReturnTypeBitmask>(
 pub fn remove_by_index_range_from<TMR: ToMapReturnTypeBitmask>(bin: &str, index: i64, return_type: TMR) -> Operation {
     let cdt_op = CdtOperation {
         op: CdtMapOpType::RemoveByIndexRange as u8,
-        encoder: Box::new(pack_cdt_op),
+        encoder: Arc::new(pack_cdt_op),
         args: vec![
             CdtArgument::Int(return_type.to_bitmask()),
             CdtArgument::Int(index),
@@ -678,7 +679,7 @@ pub fn remove_by_index_range_from<TMR: ToMapReturnTypeBitmask>(bin: &str, index:
 pub fn remove_by_rank<TMR: ToMapReturnTypeBitmask>(bin: &str, rank: i64, return_type: TMR) -> Operation {
     let cdt_op = CdtOperation {
         op: CdtMapOpType::RemoveByRank as u8,
-        encoder: Box::new(pack_cdt_op),
+        encoder: Arc::new(pack_cdt_op),
         args: vec![CdtArgument::Int(return_type.to_bitmask()), CdtArgument::Int(rank)],
     };
     Operation {
@@ -699,7 +700,7 @@ pub fn remove_by_rank_range<TMR: ToMapReturnTypeBitmask>(
 ) -> Operation {
     let cdt_op = CdtOperation {
         op: CdtMapOpType::RemoveByRankRange as u8,
-        encoder: Box::new(pack_cdt_op),
+        encoder: Arc::new(pack_cdt_op),
         args: vec![
             CdtArgument::Int(return_type.to_bitmask()),
             CdtArgument::Int(rank),
@@ -719,7 +720,7 @@ pub fn remove_by_rank_range<TMR: ToMapReturnTypeBitmask>(
 pub fn remove_by_rank_range_from<TMR: ToMapReturnTypeBitmask>(bin: &str, rank: i64, return_type: TMR) -> Operation {
     let cdt_op = CdtOperation {
         op: CdtMapOpType::RemoveByRankRange as u8,
-        encoder: Box::new(pack_cdt_op),
+        encoder: Arc::new(pack_cdt_op),
         args: vec![CdtArgument::Int(return_type.to_bitmask()), CdtArgument::Int(rank)],
     };
     Operation {
@@ -734,7 +735,7 @@ pub fn remove_by_rank_range_from<TMR: ToMapReturnTypeBitmask>(bin: &str, rank: i
 pub fn size(bin: &str) -> Operation {
     let cdt_op = CdtOperation {
         op: CdtMapOpType::Size as u8,
-        encoder: Box::new(pack_cdt_op),
+        encoder: Arc::new(pack_cdt_op),
         args: vec![],
     };
     Operation {
@@ -750,7 +751,7 @@ pub fn size(bin: &str) -> Operation {
 pub fn get_by_key<'a, TMR: ToMapReturnTypeBitmask>(bin: &'a str, key: &'a Value, return_type: TMR) -> Operation<'a> {
     let cdt_op = CdtOperation {
         op: CdtMapOpType::GetByKey as u8,
-        encoder: Box::new(pack_cdt_op),
+        encoder: Arc::new(pack_cdt_op),
         args: vec![
             CdtArgument::Int(return_type.to_bitmask()),
             CdtArgument::Value(key),
@@ -783,7 +784,7 @@ pub fn get_by_key_range<'a, TMR: ToMapReturnTypeBitmask>(
     }
     let cdt_op = CdtOperation {
         op: CdtMapOpType::GetByKeyInterval as u8,
-        encoder: Box::new(pack_cdt_op),
+        encoder: Arc::new(pack_cdt_op),
         args,
     };
     Operation {
@@ -803,7 +804,7 @@ pub fn get_by_value<'a, TMR: ToMapReturnTypeBitmask>(
 ) -> Operation<'a> {
     let cdt_op = CdtOperation {
         op: CdtMapOpType::GetByValue as u8,
-        encoder: Box::new(pack_cdt_op),
+        encoder: Arc::new(pack_cdt_op),
         args: vec![
             CdtArgument::Int(return_type.to_bitmask()),
             CdtArgument::Value(value),
@@ -836,7 +837,7 @@ pub fn get_by_value_range<'a, TMR: ToMapReturnTypeBitmask>(
     }
     let cdt_op = CdtOperation {
         op: CdtMapOpType::GetByValueInterval as u8,
-        encoder: Box::new(pack_cdt_op),
+        encoder: Arc::new(pack_cdt_op),
         args,
     };
     Operation {
@@ -852,7 +853,7 @@ pub fn get_by_value_range<'a, TMR: ToMapReturnTypeBitmask>(
 pub fn get_by_index<TMR: ToMapReturnTypeBitmask>(bin: &str, index: i64, return_type: TMR) -> Operation {
     let cdt_op = CdtOperation {
         op: CdtMapOpType::GetByIndex as u8,
-        encoder: Box::new(pack_cdt_op),
+        encoder: Arc::new(pack_cdt_op),
         args: vec![
             CdtArgument::Int(return_type.to_bitmask()),
             CdtArgument::Int(index),
@@ -876,7 +877,7 @@ pub fn get_by_index_range<TMR: ToMapReturnTypeBitmask>(
 ) -> Operation {
     let cdt_op = CdtOperation {
         op: CdtMapOpType::GetByIndexRange as u8,
-        encoder: Box::new(pack_cdt_op),
+        encoder: Arc::new(pack_cdt_op),
         args: vec![
             CdtArgument::Int(return_type.to_bitmask()),
             CdtArgument::Int(index),
@@ -897,7 +898,7 @@ pub fn get_by_index_range<TMR: ToMapReturnTypeBitmask>(
 pub fn get_by_index_range_from<TMR: ToMapReturnTypeBitmask>(bin: &str, index: i64, return_type: TMR) -> Operation {
     let cdt_op = CdtOperation {
         op: CdtMapOpType::GetByIndexRange as u8,
-        encoder: Box::new(pack_cdt_op),
+        encoder: Arc::new(pack_cdt_op),
         args: vec![
             CdtArgument::Int(return_type.to_bitmask()),
             CdtArgument::Int(index),
@@ -916,7 +917,7 @@ pub fn get_by_index_range_from<TMR: ToMapReturnTypeBitmask>(bin: &str, index: i6
 pub fn get_by_rank<TMR: ToMapReturnTypeBitmask>(bin: &str, rank: i64, return_type: TMR) -> Operation {
     let cdt_op = CdtOperation {
         op: CdtMapOpType::GetByRank as u8,
-        encoder: Box::new(pack_cdt_op),
+        encoder: Arc::new(pack_cdt_op),
         args: vec![CdtArgument::Int(return_type.to_bitmask()), CdtArgument::Int(rank)],
     };
     Operation {
@@ -937,7 +938,7 @@ pub fn get_by_rank_range<TMR: ToMapReturnTypeBitmask>(
 ) -> Operation {
     let cdt_op = CdtOperation {
         op: CdtMapOpType::GetByRankRange as u8,
-        encoder: Box::new(pack_cdt_op),
+        encoder: Arc::new(pack_cdt_op),
         args: vec![
             CdtArgument::Int(return_type.to_bitmask()),
             CdtArgument::Int(rank),
@@ -958,7 +959,7 @@ pub fn get_by_rank_range<TMR: ToMapReturnTypeBitmask>(
 pub fn get_by_rank_range_from<TMR: ToMapReturnTypeBitmask>(bin: &str, rank: i64, return_type: TMR) -> Operation {
     let cdt_op = CdtOperation {
         op: CdtMapOpType::GetByRankRange as u8,
-        encoder: Box::new(pack_cdt_op),
+        encoder: Arc::new(pack_cdt_op),
         args: vec![CdtArgument::Int(return_type.to_bitmask()), CdtArgument::Int(rank)],
     };
     Operation {
@@ -989,7 +990,7 @@ pub fn remove_by_key_relative_index_range<'a, TMR: ToMapReturnTypeBitmask>(
 ) -> Operation<'a> {
     let cdt_op = CdtOperation {
         op: CdtMapOpType::RemoveByKeyRelIndexRange as u8,
-        encoder: Box::new(pack_cdt_op),
+        encoder: Arc::new(pack_cdt_op),
         args: vec![
             CdtArgument::Int(return_type.to_bitmask()),
             CdtArgument::Value(key),
@@ -1025,7 +1026,7 @@ pub fn remove_by_key_relative_index_range_count<'a, TMR: ToMapReturnTypeBitmask>
 ) -> Operation<'a> {
     let cdt_op = CdtOperation {
         op: CdtMapOpType::RemoveByKeyRelIndexRange as u8,
-        encoder: Box::new(pack_cdt_op),
+        encoder: Arc::new(pack_cdt_op),
         args: vec![
             CdtArgument::Int(return_type.to_bitmask()),
             CdtArgument::Value(key),
@@ -1058,7 +1059,7 @@ pub fn remove_by_value_relative_rank_range<'a, TMR: ToMapReturnTypeBitmask>(
 ) -> Operation<'a> {
     let cdt_op = CdtOperation {
         op: CdtMapOpType::RemoveByValueRelRankRange as u8,
-        encoder: Box::new(pack_cdt_op),
+        encoder: Arc::new(pack_cdt_op),
         args: vec![
             CdtArgument::Int(return_type.to_bitmask()),
             CdtArgument::Value(value),
@@ -1091,7 +1092,7 @@ pub fn remove_by_value_relative_rank_range_count<'a, TMR: ToMapReturnTypeBitmask
 ) -> Operation<'a> {
     let cdt_op = CdtOperation {
         op: CdtMapOpType::RemoveByValueRelRankRange as u8,
-        encoder: Box::new(pack_cdt_op),
+        encoder: Arc::new(pack_cdt_op),
         args: vec![
             CdtArgument::Int(return_type.to_bitmask()),
             CdtArgument::Value(value),
@@ -1116,7 +1117,7 @@ pub fn get_by_key_list<'a, TMR: ToMapReturnTypeBitmask>(
 ) -> Operation<'a> {
     let cdt_op = CdtOperation {
         op: CdtMapOpType::GetByKeyList as u8,
-        encoder: Box::new(pack_cdt_op),
+        encoder: Arc::new(pack_cdt_op),
         args: vec![
             CdtArgument::Int(return_type.to_bitmask()),
             CdtArgument::List(keys),
@@ -1139,7 +1140,7 @@ pub fn get_by_value_list<'a, TMR: ToMapReturnTypeBitmask>(
 ) -> Operation<'a> {
     let cdt_op = CdtOperation {
         op: CdtMapOpType::GetByValueList as u8,
-        encoder: Box::new(pack_cdt_op),
+        encoder: Arc::new(pack_cdt_op),
         args: vec![
             CdtArgument::Int(return_type.to_bitmask()),
             CdtArgument::List(values),
@@ -1173,7 +1174,7 @@ pub fn get_by_key_relative_index_range<'a, TMR: ToMapReturnTypeBitmask>(
 ) -> Operation<'a> {
     let cdt_op = CdtOperation {
         op: CdtMapOpType::GetByKeyRelIndexRange as u8,
-        encoder: Box::new(pack_cdt_op),
+        encoder: Arc::new(pack_cdt_op),
         args: vec![
             CdtArgument::Int(return_type.to_bitmask()),
             CdtArgument::Value(key),
@@ -1209,7 +1210,7 @@ pub fn get_by_key_relative_index_range_count<'a, TMR: ToMapReturnTypeBitmask>(
 ) -> Operation<'a> {
     let cdt_op = CdtOperation {
         op: CdtMapOpType::GetByKeyRelIndexRange as u8,
-        encoder: Box::new(pack_cdt_op),
+        encoder: Arc::new(pack_cdt_op),
         args: vec![
             CdtArgument::Int(return_type.to_bitmask()),
             CdtArgument::Value(key),
@@ -1242,7 +1243,7 @@ pub fn get_by_value_relative_rank_range<'a, TMR: ToMapReturnTypeBitmask>(
 ) -> Operation<'a> {
     let cdt_op = CdtOperation {
         op: CdtMapOpType::GetByValueRelRankRange as u8,
-        encoder: Box::new(pack_cdt_op),
+        encoder: Arc::new(pack_cdt_op),
         args: vec![
             CdtArgument::Int(return_type.to_bitmask()),
             CdtArgument::Value(value),
@@ -1275,7 +1276,7 @@ pub fn get_by_value_relative_rank_range_count<'a, TMR: ToMapReturnTypeBitmask>(
 ) -> Operation<'a> {
     let cdt_op = CdtOperation {
         op: CdtMapOpType::GetByValueRelRankRange as u8,
-        encoder: Box::new(pack_cdt_op),
+        encoder: Arc::new(pack_cdt_op),
         args: vec![
             CdtArgument::Int(return_type.to_bitmask()),
             CdtArgument::Value(value),

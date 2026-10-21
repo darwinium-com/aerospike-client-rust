@@ -21,6 +21,7 @@ use crate::expressions::FilterExpression;
 use crate::msgpack::encoder::{pack_array_begin, pack_integer};
 use crate::operations::{Operation, OperationBin, OperationData, OperationType};
 use crate::ParticleType;
+use std::sync::Arc;
 
 /// Expression write Flags
 #[derive(Clone, Copy)]
@@ -68,14 +69,36 @@ impl<T: IntoIterator<Item=ExpWriteFlags>> ToExpWriteFlagBitmask for T {
 
 #[doc(hidden)]
 pub type ExpressionEncoder =
-    Box<dyn Fn(&mut Option<&mut Buffer>, &ExpOperation) -> usize + Send + Sync + 'static>;
+    Arc<dyn Fn(&mut Option<&mut Buffer>, &ExpOperation) -> usize + Send + Sync + 'static>;
 
 #[doc(hidden)]
+#[derive(Clone)]
 pub struct ExpOperation<'a> {
     pub encoder: ExpressionEncoder,
     pub policy: i64,
     pub exp: &'a FilterExpression,
 }
+
+impl<'a> std::fmt::Debug for ExpOperation<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
+        #[derive(Debug)]
+        #[allow(unused)]
+        struct ExpOperation<'a> {
+            policy: &'a i64,
+            exp: &'a FilterExpression,
+        }
+
+        let Self {
+            encoder: _,
+            policy,
+            exp,
+        } = self;
+
+        std::fmt::Debug::fmt(&ExpOperation { policy, exp }, f)
+    }
+}
+
+
 
 impl<'a> ExpOperation<'a> {
     #[doc(hidden)]
@@ -132,7 +155,7 @@ pub fn write_exp<'a, E: ToExpWriteFlagBitmask>(
     flags: E,
 ) -> Operation<'a> {
     let op = ExpOperation {
-        encoder: Box::new(pack_write_exp),
+        encoder: Arc::new(pack_write_exp),
         policy: flags.to_bitmask(),
         exp,
     };
@@ -151,7 +174,7 @@ pub fn read_exp<'a, E: ToExpReadFlagBitmask>(
     flags: E,
 ) -> Operation<'a> {
     let op = ExpOperation {
-        encoder: Box::new(pack_read_exp),
+        encoder: Arc::new(pack_read_exp),
         policy: flags.to_bitmask(),
         exp,
     };

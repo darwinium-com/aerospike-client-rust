@@ -325,10 +325,16 @@ impl Node {
     // Send info commands to this node
     pub async fn info(&self, commands: &[&str]) -> Result<HashMap<String, String>> {
         let mut conn = self.get_connection().await?;
-        Message::info(&mut conn, commands).await.map_err(|e| {
-            conn.invalidate();
-            e
-        })
+        match Message::info(&mut conn, commands).await {
+            Ok(result) => {
+                conn.return_to_pool();
+                Ok(result)
+            },
+            Err(e) => {
+                conn.invalidate();
+                Err(e)
+            }
+        }
     }
 
     // Get the partition generation

@@ -135,11 +135,14 @@ impl<'a> BatchReadCommand<'a> {
             // cancelling/closing the batch/multi commands will return an error, which will
             // close the connection to throw away its data and signal the server about the
             // situation. We will not put back the connection in the buffer.
-            if !commands::keep_connection(&err) {
+            if commands::keep_connection(&err) {
+                conn.return_to_pool();
+            } else {
                 conn.invalidate();
             }
             Err(err)
         } else {
+            conn.return_to_pool();
             Ok(true)
         }
     }

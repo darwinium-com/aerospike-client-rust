@@ -302,14 +302,18 @@ impl Cluster {
 
     pub async fn update_partitions(&self, node: &Arc<Node>) -> Result<()> {
         let mut conn = node.get_connection().await?;
-        let tokens = PartitionTokenizer::new(&mut conn, node).await.map_err(|e| {
-            conn.invalidate();
-            e
-        })?;
+        let tokens = match PartitionTokenizer::new(&mut conn, node).await {
+            Ok(tokens) => tokens,
+            Err(e) => {
+                conn.invalidate();
+                return Err(e);
+            }
+        };
 
         let mut partitions = self.partition_write_map.lock().unwrap();
         tokens.update_partition(&mut partitions, node)?;
 
+        conn.return_to_pool();
         Ok(())
     }
 
@@ -324,6 +328,7 @@ impl Cluster {
         // We re-update the rebalance generation right now (in case its changed since it was last polled)
         node.update_rebalance_generation(&info_map)?;
 
+        conn.return_to_pool();
         Ok(())
     }
 

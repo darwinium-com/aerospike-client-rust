@@ -84,6 +84,7 @@ impl AdminCommand {
             bail!(ErrorKind::ServerError(result_code));
         }
 
+        conn.return_to_pool();
         Ok(())
     }
 

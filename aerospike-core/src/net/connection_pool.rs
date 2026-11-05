@@ -194,12 +194,26 @@ impl PooledConnection {
         let conn = self.conn.take().unwrap();
         self.queue.drop_conn(conn);
     }
+
+    pub fn return_to_pool(mut self) {
+        if let Some(conn) = self.conn.take() {
+            self.queue.put_back(conn);
+        }
+    }
 }
 
 impl Drop for PooledConnection {
     fn drop(&mut self) {
-        if let Some(conn) = self.conn.take() {
-            self.queue.put_back(conn);
+        if let Some(mut conn) = self.conn.take() {
+            #[cfg(all(any(feature = "rt-async-std"), not(feature = "rt-tokio")))]
+            aerospike_rt::spawn(async move { conn.close().await });
+            #[cfg(all(any(feature = "rt-tokio"), not(feature = "rt-async-std")))]
+            {
+                match aerospike_rt::tokio::runtime::Handle::try_current() {
+                    Ok(handle) => { handle.spawn(async move { conn.close().await }); }
+                    Err(_) => drop(conn),
+                }
+            }
         }
     }
 }

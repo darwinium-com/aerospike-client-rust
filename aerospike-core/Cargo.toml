@@ -8,10 +8,10 @@ edition = "2018"
 [dependencies]
 log = "0.4"
 byteorder = "1.3"
-ripemd = "0.1"
-base64 = "0.13"
+ripemd = "0.2"
+base64 = "0.23"
 crossbeam-queue = "0.3"
-rand = "0.8"
+rand = "0.10"
 lazy_static = "1.4"
 error-chain = {  version = "0.12.4", default-features = false }
 pwhash = "1.0"

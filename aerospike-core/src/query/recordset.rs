@@ -19,7 +19,7 @@ use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::thread;
 
 use crossbeam_queue::SegQueue;
-use rand::Rng;
+use rand::RngExt;
 
 use crate::errors::Result;
 use crate::Record;
@@ -40,8 +40,8 @@ pub struct Recordset {
 impl Recordset {
     #[doc(hidden)]
     pub fn new(rec_queue_size: usize, nodes: usize) -> Self {
-        let mut rng = rand::thread_rng();
-        let task_id = rng.gen::<usize>();
+        let mut rng = rand::rng();
+        let task_id = rng.random::<u64>() as usize;
 
         Recordset {
             instances: AtomicUsize::new(nodes),

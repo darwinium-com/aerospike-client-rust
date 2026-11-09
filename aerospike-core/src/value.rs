@@ -627,7 +627,7 @@ macro_rules! as_blob {
 /// ```rust,edition2018
 /// # use aerospike::*;
 /// # use std::vec::Vec;
-/// # async fn main() {
+/// # async fn example() {
 /// # let hosts = std::env::var("AEROSPIKE_HOSTS").unwrap();
 /// # let client = Client::new(&ClientPolicy::default(), &hosts).await.unwrap();
 /// # let key = as_key!("test", "test", "mykey");
@@ -655,10 +655,10 @@ macro_rules! as_list {
 ///
 /// Execute a user-defined function (UDF) with some arguments.
 ///
-/// ```rust,should_panic,edition2018
+/// ```rust,edition2018
 /// # use aerospike::*;
 /// # use std::vec::Vec;
-/// # async fn main() {
+/// # async fn example() {
 /// # let hosts = std::env::var("AEROSPIKE_HOSTS").unwrap();
 /// # let client = Client::new(&ClientPolicy::default(), &hosts).await.unwrap();
 /// # let key = as_key!("test", "test", "mykey");
@@ -690,7 +690,7 @@ macro_rules! as_values {
 ///
 /// ```rust,edition2018
 /// # use aerospike::*;
-/// # async fn main() {
+/// # async fn example() {
 /// # let hosts = std::env::var("AEROSPIKE_HOSTS").unwrap();
 /// # let client = Client::new(&ClientPolicy::default(), &hosts).await.unwrap();
 /// # let key = as_key!("test", "test", "mykey");

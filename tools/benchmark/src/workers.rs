@@ -20,6 +20,7 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use rand::prelude::*;
+use rand::random;
 
 use aerospike::Error as asError;
 use aerospike::Result as asResult;

@@ -18,8 +18,8 @@
 use std::env;
 
 
-use rand::distributions::Alphanumeric;
-use rand::Rng;
+use rand::distr::Alphanumeric;
+use rand::RngExt;
 
 use aerospike::{Client, ClientPolicy};
 
@@ -59,6 +59,6 @@ pub async fn client() -> Client {
 }
 
 pub fn rand_str(sz: usize) -> String {
-    let rng = rand::thread_rng();
+    let rng = rand::rng();
     String::from_utf8(rng.sample_iter(&Alphanumeric).take(sz).collect()).unwrap()
 }

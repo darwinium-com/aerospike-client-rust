@@ -21,10 +21,11 @@
 //!
 //! ```rust,edition2018
 //! use aerospike::*;
+//! # async fn example() {
 //!
 //! let hosts = std::env::var("AEROSPIKE_HOSTS").unwrap();
 //! let policy = ClientPolicy::default();
-//! let client = Client::new(&policy, &hosts).expect("Failed to connect to cluster").await;
+//! let client = Client::new(&policy, &hosts).await.expect("Failed to connect to cluster");
 //! let key = as_key!("test", "test", "someKey");
 //! match client.get(&ReadPolicy::default(), &key, Bins::None).await {
 //!     Ok(record) => {
@@ -48,6 +49,7 @@
 //!         }
 //!     }
 //! }
+//! # }
 //! ```
 
 #![allow(missing_docs)]

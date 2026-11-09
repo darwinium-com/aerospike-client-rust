@@ -13,7 +13,7 @@ log = "0.4"
 env_logger = "0.9"
 lazy_static = "1.4"
 num_cpus = "1.11"
-rand = "0.8"
+rand = "0.10"
 aerospike = { path = "../.." }
 futures = {version = "0.3.16" }
 

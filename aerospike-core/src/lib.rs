@@ -73,12 +73,13 @@
 //!
 //! use aerospike::{Bins, Client, ClientPolicy, ReadPolicy, WritePolicy};
 //! use aerospike::operations;
+//! use futures::executor::block_on;
 //!
-//! fn main() {
+//! fn example() {
 //!     let cpolicy = ClientPolicy::default();
 //!     let hosts = env::var("AEROSPIKE_HOSTS")
 //!         .unwrap_or(String::from("127.0.0.1:3000"));
-//!     let client = Client::new(&cpolicy, &hosts)
+//!     let client = block_on(Client::new(&cpolicy, &hosts))
 //!         .expect("Failed to connect to cluster");
 //!     let client = Arc::new(client);
 //!
@@ -95,29 +96,29 @@
 //!                 as_bin!("str", "Hello, World!"),
 //!             ];
 //!
-//!             client.put(&wpolicy, &key, &bins).unwrap();
-//!             let rec = client.get(&rpolicy, &key, Bins::All);
+//!             block_on(client.put(&wpolicy, &key, &bins)).unwrap();
+//!             let rec = block_on(client.get(&rpolicy, &key, Bins::All));
 //!             println!("Record: {}", rec.unwrap());
 //!
-//!             client.touch(&wpolicy, &key).unwrap();
-//!             let rec = client.get(&rpolicy, &key, Bins::All);
+//!             block_on(client.touch(&wpolicy, &key)).unwrap();
+//!             let rec = block_on(client.get(&rpolicy, &key, Bins::All));
 //!             println!("Record: {}", rec.unwrap());
 //!
-//!             let rec = client.get(&rpolicy, &key, Bins::None);
+//!             let rec = block_on(client.get(&rpolicy, &key, Bins::None));
 //!             println!("Record Header: {}", rec.unwrap());
 //!
-//!             let exists = client.exists(&wpolicy, &key).unwrap();
+//!             let exists = block_on(client.exists(&wpolicy, &key)).unwrap();
 //!             println!("exists: {}", exists);
 //!
 //!             let bin = as_bin!("int", 999);
 //!             let ops = &vec![operations::put(&bin), operations::get()];
-//!             let op_rec = client.operate(&wpolicy, &key, ops);
-//!             println!("operate: {}", op_rec.unwrap());
+//!             let op_rec = block_on(client.operate(&wpolicy, &key, ops));
+//!             println!("operate: {:?}", op_rec.unwrap().bins);
 //!
-//!             let existed = client.delete(&wpolicy, &key).unwrap();
+//!             let existed = block_on(client.delete(&wpolicy, &key)).unwrap();
 //!             println!("existed (sould be true): {}", existed);
 //!
-//!             let existed = client.delete(&wpolicy, &key).unwrap();
+//!             let existed = block_on(client.delete(&wpolicy, &key)).unwrap();
 //!             println!("existed (should be false): {}", existed);
 //!         });
 //!

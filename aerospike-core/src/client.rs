@@ -18,6 +18,9 @@ use std::str;
 use std::sync::Arc;
 use std::vec::Vec;
 
+use base64::engine::general_purpose::STANDARD;
+use base64::Engine as _;
+
 use crate::batch::BatchExecutor;
 use crate::cluster::{Cluster, Node};
 use crate::commands::operate_command::OperateRecord;
@@ -90,9 +93,11 @@ impl Client {
     ///
     /// ```rust,edition2018
     /// use aerospike::{Client, ClientPolicy};
+    /// # async fn example() {
     ///
     /// let hosts = std::env::var("AEROSPIKE_HOSTS").unwrap();
     /// let client = Client::new(&ClientPolicy::default(), &hosts).await.unwrap();
+    /// # }
     /// ```
     pub async fn new(policy: &ClientPolicy, hosts: &(dyn ToHosts + Send + Sync)) -> Result<Self> {
         let hosts = hosts.to_hosts()?;
@@ -141,6 +146,7 @@ impl Client {
     ///
     /// ```rust,edition2018
     /// # use aerospike::*;
+    /// # async fn example() {
     ///
     /// # let hosts = std::env::var("AEROSPIKE_HOSTS").unwrap();
     /// # let client = Client::new(&ClientPolicy::default(), &hosts).await.unwrap();
@@ -153,12 +159,14 @@ impl Client {
     ///     Err(err)
     ///         => println!("Error fetching record: {}", err),
     /// }
+    /// # }
     /// ```
     ///
     /// Determine the remaining time-to-live of a record.
     ///
     /// ```rust,edition2018
     /// # use aerospike::*;
+    /// # async fn example() {
     ///
     /// # let hosts = std::env::var("AEROSPIKE_HOSTS").unwrap();
     /// # let client = Client::new(&ClientPolicy::default(), &hosts).await.unwrap();
@@ -175,6 +183,7 @@ impl Client {
     ///     Err(err)
     ///         => println!("Error fetching record: {}", err),
     /// }
+    /// # }
     /// ```
     ///
     /// # Panics
@@ -201,6 +210,7 @@ impl Client {
     ///
     /// ```rust,edition2018
     /// # use aerospike::*;
+    /// # async fn example() {
     ///
     /// # let hosts = std::env::var("AEROSPIKE_HOSTS").unwrap();
     /// # let client = Client::new(&ClientPolicy::default(), &hosts).await.unwrap();
@@ -222,6 +232,7 @@ impl Client {
     ///     Err(err)
     ///         => println!("Error executing batch request: {}", err),
     /// }
+    /// # }
     /// ```
     pub async fn batch_get<'a>(
         &self,
@@ -241,6 +252,7 @@ impl Client {
     ///
     /// ```rust,edition2018
     /// # use aerospike::*;
+    /// # async fn example() {
     ///
     /// # let hosts = std::env::var("AEROSPIKE_HOSTS").unwrap();
     /// # let client = Client::new(&ClientPolicy::default(), &hosts).await.unwrap();
@@ -250,12 +262,14 @@ impl Client {
     ///     Ok(()) => println!("Record written"),
     ///     Err(err) => println!("Error writing record: {}", err),
     /// }
+    /// # }
     /// ```
     ///
     /// Write a record with an expiration of 10 seconds.
     ///
     /// ```rust,edition2018
     /// # use aerospike::*;
+    /// # async fn example() {
     ///
     /// # let hosts = std::env::var("AEROSPIKE_HOSTS").unwrap();
     /// # let client = Client::new(&ClientPolicy::default(), &hosts).await.unwrap();
@@ -267,6 +281,7 @@ impl Client {
     ///     Ok(()) => println!("Record written"),
     ///     Err(err) => println!("Error writing record: {}", err),
     /// }
+    /// # }
     /// ```
     pub async fn put<'a, 'b>(
         &self,
@@ -294,6 +309,7 @@ impl Client {
     ///
     /// ```rust,edition2018
     /// # use aerospike::*;
+    /// # async fn example() {
     ///
     /// # let hosts = std::env::var("AEROSPIKE_HOSTS").unwrap();
     /// # let client = Client::new(&ClientPolicy::default(), &hosts).await.unwrap();
@@ -305,6 +321,7 @@ impl Client {
     ///     Ok(()) => println!("Record updated"),
     ///     Err(err) => println!("Error writing record: {}", err),
     /// }
+    /// # }
     /// ```
     pub async fn add<'a, 'b>(
         &self,
@@ -364,6 +381,7 @@ impl Client {
     ///
     /// ```rust,edition2018
     /// # use aerospike::*;
+    /// # async fn example() {
     ///
     /// # let hosts = std::env::var("AEROSPIKE_HOSTS").unwrap();
     /// # let client = Client::new(&ClientPolicy::default(), &hosts).await.unwrap();
@@ -373,6 +391,7 @@ impl Client {
     ///     Ok(false) => println!("Record did not exist"),
     ///     Err(err) => println!("Error deleting record: {}", err),
     /// }
+    /// # }
     /// ```
     pub async fn delete(&self, policy: &WritePolicy, key: &Key) -> Result<bool> {
         let mut command = DeleteCommand::new(policy, self.cluster.clone(), key);
@@ -389,6 +408,7 @@ impl Client {
     ///
     /// ```rust,edition2018
     /// # use aerospike::*;
+    /// # async fn example() {
     ///
     /// # let hosts = std::env::var("AEROSPIKE_HOSTS").unwrap();
     /// # let client = Client::new(&ClientPolicy::default(), &hosts).await.unwrap();
@@ -399,6 +419,7 @@ impl Client {
     ///     Ok(()) => println!("Record expiration updated"),
     ///     Err(err) => println!("Error writing record: {}", err),
     /// }
+    /// # }
     /// ```
     pub async fn touch(&self, policy: &WritePolicy, key: &Key) -> Result<()> {
         let mut command = TouchCommand::new(policy, self.cluster.clone(), key);
@@ -425,6 +446,7 @@ impl Client {
     ///
     /// ```rust,edition2018
     /// # use aerospike::*;
+    /// # async fn example() {
     ///
     /// # let hosts = std::env::var("AEROSPIKE_HOSTS").unwrap();
     /// # let client = Client::new(&ClientPolicy::default(), &hosts).await.unwrap();
@@ -435,9 +457,10 @@ impl Client {
     ///     operations::get_bin("a"),
     /// ];
     /// match client.operate(&WritePolicy::default(), &key, &ops).await {
-    ///     Ok(record) => println!("The new value is {}", record.bins.get("a").unwrap()),
+    ///     Ok(record) => println!("The new value is {:?}", record.bins.last().map(|(_, v)| v)),
     ///     Err(err) => println!("Error writing record: {}", err),
     /// }
+    /// # }
     /// ```
     /// # Panics
     ///  Panics if the return is invalid
@@ -464,6 +487,7 @@ impl Client {
     /// ```rust,edition2018
     /// # extern crate aerospike;
     /// # use aerospike::*;
+    /// # async fn example() {
     ///
     /// # let hosts = std::env::var("AEROSPIKE_HOSTS").unwrap();
     /// # let client = Client::new(&ClientPolicy::default(), &hosts).await.unwrap();
@@ -493,6 +517,7 @@ impl Client {
     ///
     /// client.register_udf(code.as_bytes(),
     ///                     "example.lua", UDFLang::Lua).await.unwrap();
+    /// # }
     /// ```
     pub async fn register_udf(
         &self,
@@ -500,7 +525,7 @@ impl Client {
         udf_name: &str,
         language: UDFLang,
     ) -> Result<RegisterTask> {
-        let udf_body = base64::encode(udf_body);
+        let udf_body = STANDARD.encode(udf_body);
 
         let cmd = format!(
             "udf-put:filename={};content={};content-len={};udf-type={};",
@@ -513,7 +538,7 @@ impl Client {
         let response = node.info(&[&cmd]).await?;
 
         if let Some(msg) = response.get("error") {
-            let msg = base64::decode(msg)?;
+            let msg = STANDARD.decode(msg)?;
             let msg = str::from_utf8(&msg)?;
             bail!(
                 "UDF Registration failed: {}, file: {}, line: {}, message: {}",
@@ -616,9 +641,10 @@ impl Client {
     /// ```rust,edition2018
     /// # extern crate aerospike;
     /// # use aerospike::*;
+    /// # async fn example() {
     ///
     /// # let hosts = std::env::var("AEROSPIKE_HOSTS").unwrap();
-    /// # let client = Client::new(&ClientPolicy::default(), &hosts).wait.unwrap();
+    /// # let client = Client::new(&ClientPolicy::default(), &hosts).await.unwrap();
     /// match client.scan(&ScanPolicy::default(), "test", "demo", Bins::All).await {
     ///     Ok(records) => {
     ///         let mut count = 0;
@@ -632,6 +658,7 @@ impl Client {
     ///     },
     ///     Err(err) => println!("Failed to execute scan: {}", err),
     /// }
+    /// # }
     /// ```
     ///
     /// # Panics
@@ -722,6 +749,7 @@ impl Client {
     /// ```rust,edition2018
     /// # extern crate aerospike;
     /// # use aerospike::*;
+    /// # async fn example() {
     ///
     /// # let hosts = std::env::var("AEROSPIKE_HOSTS").unwrap();
     /// # let client = Client::new(&ClientPolicy::default(), &hosts).await.unwrap();
@@ -734,6 +762,7 @@ impl Client {
     ///     },
     ///     Err(err) => println!("Error fetching record: {}", err),
     /// }
+    /// # }
     /// ```
     ///
     /// # Panics
@@ -840,6 +869,7 @@ impl Client {
     /// ```rust,edition2018
     /// # extern crate aerospike;
     /// # use aerospike::*;
+    /// # async fn example() {
     ///
     /// # let hosts = std::env::var("AEROSPIKE_HOSTS").unwrap();
     /// # let client = Client::new(&ClientPolicy::default(), &hosts).await.unwrap();
@@ -848,6 +878,7 @@ impl Client {
     ///     Err(err) => println!("Failed to create index: {}", err),
     ///     _ => {}
     /// }
+    /// # }
     /// ```
     pub async fn create_index(
         &self,

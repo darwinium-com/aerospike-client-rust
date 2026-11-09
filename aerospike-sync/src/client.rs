@@ -76,10 +76,12 @@ impl Client {
     /// Using an environment variable to set the list of seed hosts.
     ///
     /// ```rust,edition2018
-    /// use aerospike::{Client, ClientPolicy};
+    /// use aerospike_sync::{Client, ClientPolicy};
+    /// # fn example() {
     ///
     /// let hosts = std::env::var("AEROSPIKE_HOSTS").unwrap();
     /// let client = Client::new(&ClientPolicy::default(), &hosts).unwrap();
+    /// # }
     /// ```
     pub fn new(policy: &ClientPolicy, hosts: &(dyn ToHosts + Send + Sync)) -> Result<Self> {
         let client = block_on(aerospike_core::Client::new(policy, hosts))?;
@@ -123,7 +125,8 @@ impl Client {
     /// Fetch specified bins for a record with the given key.
     ///
     /// ```rust,edition2018
-    /// # use aerospike::*;
+    /// # use aerospike_sync::*;
+    /// # fn example() {
     ///
     /// # let hosts = std::env::var("AEROSPIKE_HOSTS").unwrap();
     /// # let client = Client::new(&ClientPolicy::default(), &hosts).unwrap();
@@ -136,12 +139,14 @@ impl Client {
     ///     Err(err)
     ///         => println!("Error fetching record: {}", err),
     /// }
+    /// # }
     /// ```
     ///
     /// Determine the remaining time-to-live of a record.
     ///
     /// ```rust,edition2018
-    /// # use aerospike::*;
+    /// # use aerospike_sync::*;
+    /// # fn example() {
     ///
     /// # let hosts = std::env::var("AEROSPIKE_HOSTS").unwrap();
     /// # let client = Client::new(&ClientPolicy::default(), &hosts).unwrap();
@@ -158,6 +163,7 @@ impl Client {
     ///     Err(err)
     ///         => println!("Error fetching record: {}", err),
     /// }
+    /// # }
     /// ```
     ///
     /// # Panics
@@ -180,7 +186,8 @@ impl Client {
     /// Fetch multiple records in a single client request
     ///
     /// ```rust,edition2018
-    /// # use aerospike::*;
+    /// # use aerospike_sync::*;
+    /// # fn example() {
     ///
     /// # let hosts = std::env::var("AEROSPIKE_HOSTS").unwrap();
     /// # let client = Client::new(&ClientPolicy::default(), &hosts).unwrap();
@@ -202,6 +209,7 @@ impl Client {
     ///     Err(err)
     ///         => println!("Error executing batch request: {}", err),
     /// }
+    /// # }
     /// ```
     pub fn batch_get<'a>(
         &self,
@@ -219,7 +227,8 @@ impl Client {
     /// Write a record with a single integer bin.
     ///
     /// ```rust,edition2018
-    /// # use aerospike::*;
+    /// # use aerospike_sync::*;
+    /// # fn example() {
     ///
     /// # let hosts = std::env::var("AEROSPIKE_HOSTS").unwrap();
     /// # let client = Client::new(&ClientPolicy::default(), &hosts).unwrap();
@@ -229,12 +238,14 @@ impl Client {
     ///     Ok(()) => println!("Record written"),
     ///     Err(err) => println!("Error writing record: {}", err),
     /// }
+    /// # }
     /// ```
     ///
     /// Write a record with an expiration of 10 seconds.
     ///
     /// ```rust,edition2018
-    /// # use aerospike::*;
+    /// # use aerospike_sync::*;
+    /// # fn example() {
     ///
     /// # let hosts = std::env::var("AEROSPIKE_HOSTS").unwrap();
     /// # let client = Client::new(&ClientPolicy::default(), &hosts).unwrap();
@@ -246,6 +257,7 @@ impl Client {
     ///     Ok(()) => println!("Record written"),
     ///     Err(err) => println!("Error writing record: {}", err),
     /// }
+    /// # }
     /// ```
     pub fn put<'a, 'b>(
         &self,
@@ -265,7 +277,8 @@ impl Client {
     /// Add two integer values to two existing bin values.
     ///
     /// ```rust,edition2018
-    /// # use aerospike::*;
+    /// # use aerospike_sync::*;
+    /// # fn example() {
     ///
     /// # let hosts = std::env::var("AEROSPIKE_HOSTS").unwrap();
     /// # let client = Client::new(&ClientPolicy::default(), &hosts).unwrap();
@@ -277,6 +290,7 @@ impl Client {
     ///     Ok(()) => println!("Record updated"),
     ///     Err(err) => println!("Error writing record: {}", err),
     /// }
+    /// # }
     /// ```
     pub fn add<'a, 'b>(
         &self,
@@ -319,7 +333,8 @@ impl Client {
     /// Delete a record.
     ///
     /// ```rust,edition2018
-    /// # use aerospike::*;
+    /// # use aerospike_sync::*;
+    /// # fn example() {
     ///
     /// # let hosts = std::env::var("AEROSPIKE_HOSTS").unwrap();
     /// # let client = Client::new(&ClientPolicy::default(), &hosts).unwrap();
@@ -329,6 +344,7 @@ impl Client {
     ///     Ok(false) => println!("Record did not exist"),
     ///     Err(err) => println!("Error deleting record: {}", err),
     /// }
+    /// # }
     /// ```
     pub fn delete(&self, policy: &WritePolicy, key: &Key) -> Result<bool> {
         block_on(self.async_client.delete(policy, key))
@@ -342,7 +358,8 @@ impl Client {
     /// Reset a record's time to expiration to the default ttl for the namespace.
     ///
     /// ```rust,edition2018
-    /// # use aerospike::*;
+    /// # use aerospike_sync::*;
+    /// # fn example() {
     ///
     /// # let hosts = std::env::var("AEROSPIKE_HOSTS").unwrap();
     /// # let client = Client::new(&ClientPolicy::default(), &hosts).unwrap();
@@ -353,6 +370,7 @@ impl Client {
     ///     Ok(()) => println!("Record expiration updated"),
     ///     Err(err) => println!("Error writing record: {}", err),
     /// }
+    /// # }
     /// ```
     pub fn touch(&self, policy: &WritePolicy, key: &Key) -> Result<()> {
         block_on(self.async_client.touch(policy, key))
@@ -375,7 +393,8 @@ impl Client {
     /// call.
     ///
     /// ```rust,edition2018
-    /// # use aerospike::*;
+    /// # use aerospike_sync::*;
+    /// # fn example() {
     ///
     /// # let hosts = std::env::var("AEROSPIKE_HOSTS").unwrap();
     /// # let client = Client::new(&ClientPolicy::default(), &hosts).unwrap();
@@ -386,9 +405,10 @@ impl Client {
     ///     operations::get_bin("a"),
     /// ];
     /// match client.operate(&WritePolicy::default(), &key, &ops) {
-    ///     Ok(record) => println!("The new value is {}", record.bins.get("a").unwrap()),
+    ///     Ok(record) => println!("The new value is {:?}", record.bins.last().map(|(_, v)| v)),
     ///     Err(err) => println!("Error writing record: {}", err),
     /// }
+    /// # }
     /// ```
     /// # Panics
     ///  Panics if the return is invalid
@@ -412,7 +432,8 @@ impl Client {
     ///
     /// ```rust,edition2018
     /// # extern crate aerospike;
-    /// # use aerospike::*;
+    /// # use aerospike_sync::*;
+    /// # fn example() {
     ///
     /// # let hosts = std::env::var("AEROSPIKE_HOSTS").unwrap();
     /// # let client = Client::new(&ClientPolicy::default(), &hosts).unwrap();
@@ -442,6 +463,7 @@ impl Client {
     ///
     /// client.register_udf(code.as_bytes(),
     ///                     "example.lua", UDFLang::Lua).unwrap();
+    /// # }
     /// ```
     pub fn register_udf(
         &self,
@@ -504,10 +526,11 @@ impl Client {
     ///
     /// ```rust,edition2018
     /// # extern crate aerospike;
-    /// # use aerospike::*;
+    /// # use aerospike_sync::*;
+    /// # fn example() {
     ///
     /// # let hosts = std::env::var("AEROSPIKE_HOSTS").unwrap();
-    /// # let client = Client::new(&ClientPolicy::default(), &hosts).wait.unwrap();
+    /// # let client = Client::new(&ClientPolicy::default(), &hosts).unwrap();
     /// match client.scan(&ScanPolicy::default(), "test", "demo", Bins::All) {
     ///     Ok(records) => {
     ///         let mut count = 0;
@@ -521,6 +544,7 @@ impl Client {
     ///     },
     ///     Err(err) => println!("Failed to execute scan: {}", err),
     /// }
+    /// # }
     /// ```
     ///
     /// # Panics
@@ -571,7 +595,8 @@ impl Client {
     ///
     /// ```rust,edition2018
     /// # extern crate aerospike;
-    /// # use aerospike::*;
+    /// # use aerospike_sync::*;
+    /// # fn example() {
     ///
     /// # let hosts = std::env::var("AEROSPIKE_HOSTS").unwrap();
     /// # let client = Client::new(&ClientPolicy::default(), &hosts).unwrap();
@@ -584,6 +609,7 @@ impl Client {
     ///     },
     ///     Err(err) => println!("Error fetching record: {}", err),
     /// }
+    /// # }
     /// ```
     ///
     /// # Panics
@@ -636,15 +662,17 @@ impl Client {
     ///
     /// ```rust,edition2018
     /// # extern crate aerospike;
-    /// # use aerospike::*;
+    /// # use aerospike_sync::*;
+    /// # fn example() {
     ///
     /// # let hosts = std::env::var("AEROSPIKE_HOSTS").unwrap();
     /// # let client = Client::new(&ClientPolicy::default(), &hosts).unwrap();
     /// match client.create_index("foo", "bar", "baz",
-    ///     "idx_foo_bar_baz", IndexType::Numeric).await {
+    ///     "idx_foo_bar_baz", IndexType::Numeric) {
     ///     Err(err) => println!("Failed to create index: {}", err),
     ///     _ => {}
     /// }
+    /// # }
     /// ```
     pub fn create_index(
         &self,

@@ -137,6 +137,31 @@ impl Buffer {
         Ok(())
     }
 
+    /// Like `resize_buffer`, but never shrinks the allocation. Used when a single response is
+    /// read in several large chunks, so the buffer is not reallocated between chunks. Call
+    /// `reclaim` once the whole response has been consumed.
+    pub fn resize_buffer_retain(&mut self, size: usize) -> Result<()> {
+        if size > MAX_BUFFER_SIZE {
+            bail!("Invalid size for buffer: {}", size);
+        }
+        self.data_buffer.resize(size, 0);
+        Ok(())
+    }
+
+    /// Releases memory above `reclaim_threshold`, keeping up to the threshold allocated for
+    /// reuse by the next command on this connection.
+    pub fn reclaim(&mut self) {
+        if self.data_buffer.capacity() > self.reclaim_threshold {
+            self.data_buffer.truncate(self.reclaim_threshold);
+            self.data_buffer.shrink_to(self.reclaim_threshold);
+        }
+    }
+
+    /// Bytes remaining between the current offset and the end of the buffer.
+    pub fn remaining(&self) -> usize {
+        self.data_buffer.len().saturating_sub(self.data_offset)
+    }
+
     pub fn reset_offset(&mut self) {
         // reset data offset
         self.data_offset = 0;

@@ -40,17 +40,29 @@ impl BatchExecutor {
         policy: &BatchPolicy,
         batch_reads: Vec<BatchRead<'a>>,
     ) -> Result<Vec<BatchRead<'a>>> {
-        let batch_nodes = self.get_batch_nodes(&batch_reads, policy.replica)?;
+        let record_count = batch_reads.len();
+        let batch_nodes = self.get_batch_nodes(batch_reads, policy.replica)?;
         let mut jobs = Vec::<BatchReadCommand<'a>>::new();
-        for (node, node_jobs) in batch_nodes {
-            for node_chunk in node_jobs.chunks(MAX_BATCH_REQUEST_SIZE) {
-                jobs.push( BatchReadCommand::new(policy, node.clone(), node_chunk.to_vec()) );
+        for (node, mut node_jobs) in batch_nodes {
+            // Split into request sized chunks by moving, not cloning, the batch reads.
+            while node_jobs.len() > MAX_BATCH_REQUEST_SIZE {
+                let rest = node_jobs.split_off(MAX_BATCH_REQUEST_SIZE);
+                jobs.push(BatchReadCommand::new(policy, node.clone(), node_jobs));
+                node_jobs = rest;
             }
+            jobs.push(BatchReadCommand::new(policy, node, node_jobs));
         }
         let reads = self.execute_batch_jobs(jobs).await?;
-        let mut all_results: Vec<_> = reads.into_iter().flat_map(|cmd|cmd.batch_reads).collect();
-        all_results.sort_by_key(|(_, i)|*i);
-        Ok(all_results.into_iter().map(|(b, _)|b).collect())
+
+        // Put each result back at its original position (O(n), no sort).
+        let mut ordered: Vec<Option<BatchRead<'a>>> = (0..record_count).map(|_| None).collect();
+        for (batch_read, index) in reads.into_iter().flat_map(|cmd| cmd.batch_reads) {
+            ordered[index] = Some(batch_read);
+        }
+        Ok(ordered
+            .into_iter()
+            .map(|batch_read| batch_read.expect("every batch read is assigned to exactly one job"))
+            .collect())
     }
 
     async fn execute_batch_jobs<'a>(
@@ -63,15 +75,15 @@ impl BatchExecutor {
 
     fn get_batch_nodes<'a>(
         &self,
-        batch_reads: &[BatchRead<'a>],
+        batch_reads: Vec<BatchRead<'a>>,
         replica: crate::policy::Replica,
     ) -> Result<HashMap<Arc<Node>, Vec<(BatchRead<'a>, usize)>>> {
         let mut map = HashMap::new();
-        for (index, batch_read) in batch_reads.iter().enumerate() {
+        for (index, batch_read) in batch_reads.into_iter().enumerate() {
             let node = self.node_for_key(&batch_read.key, replica)?;
             map.entry(node)
                 .or_insert_with(Vec::new)
-                .push((batch_read.clone(), index));
+                .push((batch_read, index));
         }
         Ok(map)
     }

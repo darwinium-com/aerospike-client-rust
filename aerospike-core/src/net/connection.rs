@@ -83,6 +83,17 @@ impl Connection {
         Ok(())
     }
 
+    /// Reads exactly `size` bytes into the buffer without shrinking its allocation.
+    /// See `Buffer::resize_buffer_retain`.
+    pub async fn read_buffer_retain(&mut self, size: usize) -> Result<()> {
+        self.buffer.resize_buffer_retain(size)?;
+        self.conn.read_exact(&mut self.buffer.data_buffer).await?;
+        self.bytes_read += size;
+        self.buffer.reset_offset();
+        self.refresh();
+        Ok(())
+    }
+
     pub async fn write(&mut self, buf: &[u8]) -> Result<()> {
         self.conn.write_all(buf).await?;
         self.refresh();
